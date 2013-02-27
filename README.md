@@ -1,4 +1,6 @@
-gx
-==
+Generative Expressions Library
+==============================
 
-Generative Expression for CAD and Robot Control
+gx is a library for generating geometry in FreeCAD and Rhino,
+and deriving fabrication instruction for machine control.
+
