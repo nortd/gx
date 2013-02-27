@@ -535,7 +535,6 @@ class RhinoForm(BaseForm):
                         random.uniform(yr[0],yr[1]),
                         random.uniform(zr[0],zr[1])))
         self.obj = rs.AddInterpCurve(pts)
-        self.obj.Shape = crv.toShape()
         return self
 
 
@@ -691,7 +690,8 @@ class RhinoForm(BaseForm):
     #     self.obj.transformShape()
 
     def transform(self, mat):
-        rs.TransformObject(self.obj, mat.tolist())
+        rs.TransformObject(self.obj, 
+            [mat[:4],mat[4:8],mat[8:12],mat[12:16]])
 
 
 # ############################################################################
