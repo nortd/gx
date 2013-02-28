@@ -34,9 +34,9 @@ __author__  = 'Stefan Hechenberger <stefan@nortd.com>'
 __version__ = '2013.02'
 __license__ = 'GPL3'
 __docformat__ = 'restructuredtext en'
-__all__ = ['get_active_view', 'refresh_view', 'view_all', 'view_selected',
-           'clear_selection', 'get_selected', 'make_line', 'make_circle', 
-           'make_interpolation_curve', 'make_random_curve',
+__all__ = ['active_view', 'refresh_view', 'view_all', 'view_selection',
+           'clear_selection', 'selected', 'line', 'circle', 
+           'interpolation_curve', 'random_curve',
            'P','V', 'M', 'tM', 'sM', 'rM', 'raM', 'rxM', 'ryM', 'rzM',
            'Q', 'aQ', 'eQ', 'mQ', 'iQ']
 
@@ -52,10 +52,10 @@ class BaseApp():
     # ###########################################
     # implemented in FreeCadApp, and RhinoApp
     # Document Methods
-    def get_active_view(cls): pass
+    def active_view(cls): pass
     def refresh_view(cls): pass
     def view_all(cls): pass
-    def view_selected(cls): pass
+    def view_selection(cls): pass
     # Selection
     def clear_selection(cls): pass
 
@@ -69,13 +69,13 @@ class BaseForm():
     # ###########################################
     # implemented in FreeCadForm, and RhinoForm
     # Factories
-    def get_selected(cls): pass
-    def make_line(cls, p1, p2): pass
-    def make_circle(cls, p1, p2): pass
-    def make_interpolation_curve(cls, pts): pass
-    def make_random_curve(cls, nPts=4, xr=(0,1), yr=(0,1), zr=(0,0), xsigma=0.5): pass
+    def selected(cls): pass
+    def line(cls, p1, p2): pass
+    def circle(cls, p1, p2): pass
+    def interpolation_curve(cls, pts): pass
+    def random_curve(cls, nPts=4, xr=(0,1), yr=(0,1), zr=(0,0), xsigma=0.5): pass
     # Selection
-    def select(self, ): pass
+    def select(self, clearFirst=False): pass
     def unselect(self): pass
     def is_selected(self): pass
     # Geometry Classification
@@ -187,7 +187,7 @@ class FreeCadApp(BaseApp):
         return FreeCAD.ActiveDocument.getObject(name).ViewObject
 
     @classmethod
-    def get_active_view(cls):
+    def active_view(cls):
         return FreeCAD.Gui.ActiveDocument.ActiveView
 
     @classmethod
@@ -199,8 +199,8 @@ class FreeCadApp(BaseApp):
         FreeCAD.Gui.SendMsgToActiveView("ViewFit")
 
     @classmethod
-    def view_selected(cls):
-        self.error("not implemented")
+    def view_selection(cls):
+        FreeCAD.Gui.SendMsgToActiveView("ViewSelection")
 
     # ###########################################
     # Selection
@@ -225,7 +225,7 @@ class FreeCadForm(BaseForm):
     # Factories
 
     @classmethod
-    def get_selected(cls):
+    def selected(cls):
         objs = FreeCAD.Gui.Selection.getSelection()
         if objs:
             self = cls()
@@ -235,7 +235,7 @@ class FreeCadForm(BaseForm):
             return None
 
     @classmethod
-    def make_line(cls, p1, p2):
+    def line(cls, p1, p2):
         self = cls()
         self.obj = FreeCAD.ActiveDocument.addObject("Part::Feature","hyLine")
         shape = Part.makeLine(tuple(p1), tuple(p2))  # Part.TopoShape
@@ -247,7 +247,7 @@ class FreeCadForm(BaseForm):
         return self
 
     @classmethod
-    def make_circle(cls, r):
+    def circle(cls, r):
         self = cls()
         self.obj = FreeCAD.ActiveDocument.addObject("Part::Feature","hyCircle")
         circ = Part.Circle()  # Part.GeomCircle
@@ -258,7 +258,7 @@ class FreeCadForm(BaseForm):
         return self
 
     @classmethod
-    def make_interpolation_curve(cls, pts):
+    def interpolation_curve(cls, pts):
         self = cls()
         self.obj = FreeCAD.ActiveDocument.addObject("Part::Feature","hyCurve")
         crv = Part.BSplineCurve()  # Part.GeomCircle
@@ -270,7 +270,7 @@ class FreeCadForm(BaseForm):
         return self
 
     @classmethod
-    def make_random_curve(cls, nPts=4, xr=(0,1), yr=(0,1), zr=(0,0), xsigma=0.5):
+    def random_curve(cls, nPts=4, xr=(0,1), yr=(0,1), zr=(0,0), xsigma=0.5):
         nPts = int(nPts)
         if nPts == 0: return None
         self = cls()
@@ -290,8 +290,8 @@ class FreeCadForm(BaseForm):
     # ###########################################
     # Selection
 
-    def select(self, clear_first=False):
-        if clear_first:
+    def select(self, clearFirst=False):
+        if clearFirst:
             clear_selection()
         FreeCAD.Gui.Selection.addSelection(self.obj)
 
@@ -458,7 +458,7 @@ class RhinoApp(BaseApp):
     # Document Methods
 
     @classmethod
-    def get_active_view(cls):
+    def active_view(cls):
         return rs.CurrentView()
 
     @classmethod
@@ -470,7 +470,7 @@ class RhinoApp(BaseApp):
         rs.ZoomExtents()
 
     @classmethod
-    def view_selected(cls):
+    def view_selection(cls):
         rs.ZoomSelected()
 
     # ###########################################
@@ -496,7 +496,7 @@ class RhinoForm(BaseForm):
     # Factories
 
     @classmethod
-    def get_selected(cls):
+    def selected(cls):
         objs = rs.SelectedObjects()
         if objs:
             self = cls()
@@ -506,25 +506,25 @@ class RhinoForm(BaseForm):
             return None
 
     @classmethod
-    def make_line(cls, p1, p2):
+    def line(cls, p1, p2):
         self = cls()
         self.obj = rs.AddLine(p1, p2)
         return self
 
     @classmethod
-    def make_circle(cls, r):
+    def circle(cls, r):
         self = cls()
         self.obj = rs.AddCircle(rs.WorldXYPlane(), r)
         return self
 
     @classmethod
-    def make_interpolation_curve(cls, pts):
+    def interpolation_curve(cls, pts):
         self = cls()
         self.obj = rs.AddInterpCurve(pts)
         return self
 
     @classmethod
-    def make_random_curve(cls, nPts=4, xr=(0,1), yr=(0,1), zr=(0,0), xsigma=0.5):
+    def random_curve(cls, nPts=4, xr=(0,1), yr=(0,1), zr=(0,0), xsigma=0.5):
         nPts = int(nPts)
         if nPts == 0: return None
         self = cls()
@@ -541,8 +541,8 @@ class RhinoForm(BaseForm):
     # ###########################################
     # Selection
 
-    def select(self, clear_first=False):
-        if clear_first:
+    def select(self, clearFirst=False):
+        if clearFirst:
             clear_selection()
         rs.SelectObjects([self.obj])
 
@@ -715,17 +715,17 @@ except ImportError:
 # ############################################################################
 # Aliases
 # App-level
-get_active_view = App.get_active_view
+active_view = App.active_view
 refresh_view = App.refresh_view
 view_all = App.view_all
-view_selected = App.view_selected
+view_selection = App.view_selection
 clear_selection = App.clear_selection
 # Form Factories
-get_selected = Form.get_selected
-make_line = Form.make_line
-make_circle = Form.make_circle
-make_interpolation_curve = Form.make_interpolation_curve
-make_random_curve = Form.make_random_curve
+selected = Form.selected
+line = Form.line
+circle = Form.circle
+interpolation_curve = Form.interpolation_curve
+random_curve = Form.random_curve
 # Transformations
 P = euclid.Point3                           # x, y, z
 V = euclid.Vector3                          # x, y, z
