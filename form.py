@@ -23,20 +23,19 @@ Running FreeCAD standalone in Ubuntu
 * sys.path.append("/usr/lib/freecad/lib/")
 * import FreeCAD
 
+Resources, example scripts
+---------------------------
+* /usr/lib/freecad/Mod
 
 """
 
+import math
 import random
 from libs import euclid
 
 
 __author__  = 'Stefan Hechenberger <stefan@nortd.com>'
-__version__ = '2013.02'
-__license__ = 'GPL3'
-__docformat__ = 'restructuredtext en'
-__all__ = ['active_view', 'refresh_view', 'view_all', 'view_selection',
-           'clear_selection', 'selected', 'line', 'circle', 
-           'interpolation_curve', 'random_curve',
+__all__ = ['selected', 'line', 'circle', 'interpolation_curve', 'random_curve',
            'P','V', 'M', 'tM', 'sM', 'rM', 'raM', 'rxM', 'ryM', 'rzM',
            'Q', 'aQ', 'eQ', 'mQ', 'iQ']
 
@@ -45,23 +44,9 @@ __all__ = ['active_view', 'refresh_view', 'view_all', 'view_selection',
 # ############################################################################
 # General Implementation
 
-class BaseApp():
-    def __init__(self):
-        BaseApp.__init__(self)
-
-    # ###########################################
-    # implemented in FreeCadApp, and RhinoApp
-    # Document Methods
-    def active_view(cls): pass
-    def refresh_view(cls): pass
-    def view_all(cls): pass
-    def view_selection(cls): pass
-    # Selection
-    def clear_selection(cls): pass
-
-
-
 class BaseForm():
+
+    TO_RAD = math.pi/180.0
 
     def __init__(self):
         self.obj = None
@@ -113,42 +98,42 @@ class BaseForm():
         self.transform(mat)
     def rotate(self, x, y, z, center=(0,0,0)):
         if center == V():
-            mat = rM(y,z,x)
+            mat = rM(y*self.TO_RAD, z*self.TO_RAD, x*self.TO_RAD)
         else:
             mat = (tM(center[0], center[1], center[2]) * 
-                   rM(y,z,x) * 
+                   rM(y*self.TO_RAD, z*self.TO_RAD, x*self.TO_RAD) * 
                    tM(-center[0], -center[1], -center[2]))
         self.transform(mat)
     def rotatex(self, angle, center=(0,0,0)):
         if center == V():
-            mat = rxM(angle)
+            mat = rxM(angle*self.TO_RAD)
         else:
             mat = (tM(center[0], center[1], center[2]) * 
-                   rxM(angle) * 
+                   rxM(angle*self.TO_RAD) * 
                    tM(-center[0], -center[1], -center[2]))
         self.transform(mat)
     def rotatey(self, angle, center=(0,0,0)):
         if center == V():
-            mat = ryM(angle)
+            mat = ryM(angle*self.TO_RAD)
         else:
             mat = (tM(center[0], center[1], center[2]) * 
-                   ryM(angle) * 
+                   ryM(angle*self.TO_RAD) * 
                    tM(-center[0], -center[1], -center[2]))
         self.transform(mat)
     def rotatez(self, angle, center=(0,0,0)):
         if center == V():
-            mat = rzM(angle)
+            mat = rzM(angle*self.TO_RAD)
         else:
             mat = (tM(center[0], center[1], center[2]) * 
-                   rzM(angle) * 
+                   rzM(angle*self.TO_RAD) * 
                    tM(-center[0], -center[1], -center[2]))
         self.transform(mat)
     def rotate_axis(self, angle, axis, center=(0,0,0)):
         if center == V():
-            mat = raM(angle, axis)
+            mat = raM(angle*self.TO_RAD, axis)
         else:
             mat = (tM(center[0], center[1], center[2]) * 
-                   raM(angle, axis) * 
+                   raM(angle*self.TO_RAD, axis) * 
                    tM(-center[0], -center[1], -center[2]))
         self.transform(mat)
     def rotate_quat(self, quaternion, center=(0,0,0)):
@@ -166,52 +151,6 @@ class BaseForm():
 # ############################################################################
 # FreeCAD Implementation
 
-class FreeCadApp(BaseApp):
-    def __init(self):
-        BaseApp.__init__(self)
-
-    # ###########################################
-    # Document Methods
-
-    @classmethod
-    def get_active_document(cls):
-        return FreeCAD.ActiveDocument
-
-    @classmethod
-    def get_object(cls, name):
-        return FreeCAD.ActiveDocument.getObject(name)
-
-    @classmethod
-    def get_view_object(cls, name):
-        """Get the view representation part of the object."""
-        return FreeCAD.ActiveDocument.getObject(name).ViewObject
-
-    @classmethod
-    def active_view(cls):
-        return FreeCAD.Gui.ActiveDocument.ActiveView
-
-    @classmethod
-    def refresh_view(cls):
-        FreeCAD.ActiveDocument.recompute()
-
-    @classmethod
-    def view_all(cls):
-        FreeCAD.Gui.SendMsgToActiveView("ViewFit")
-
-    @classmethod
-    def view_selection(cls):
-        FreeCAD.Gui.SendMsgToActiveView("ViewSelection")
-
-    # ###########################################
-    # Selection
-
-    @classmethod
-    def clear_selection(cls):
-        FreeCAD.Gui.Selection.clearSelection()
-
-
-
-
 class FreeCadForm(BaseForm):
     def __init__(self):
         BaseForm.__init__(self)
@@ -219,6 +158,9 @@ class FreeCadForm(BaseForm):
         self.warn = FreeCAD.Console.PrintWarning
         self.log = FreeCAD.Console.PrintLog
         self.message = FreeCAD.Console.PrintMessage
+
+        if FreeCAD.ActiveDocument == None:
+            FreeCAD.newDocument()
 
 
     # ###########################################
@@ -411,8 +353,8 @@ class FreeCadForm(BaseForm):
 
     def _param_from_normalized(self, t):
         # same as 0-self.obj.Shape.Length ?
-        return self.Shape.FirstParameter + \
-               t*(self.Shape.LastParameter-self.Shape.FirstParameter)
+        return self.obj.Shape.FirstParameter + \
+               t*(self.obj.Shape.LastParameter-self.obj.Shape.FirstParameter)
 
 
     # ###########################################
@@ -449,39 +391,6 @@ class FreeCadForm(BaseForm):
 
 # ############################################################################
 # Rhino Implementation
-
-class RhinoApp(BaseApp):
-    def __init__(self):
-        BaseApp.__init__(self)
-
-    # ###########################################
-    # Document Methods
-
-    @classmethod
-    def active_view(cls):
-        return rs.CurrentView()
-
-    @classmethod
-    def refresh_view(cls):
-        rs.Redraw()
-
-    @classmethod
-    def view_all(cls):
-        rs.ZoomExtents()
-
-    @classmethod
-    def view_selection(cls):
-        rs.ZoomSelected()
-
-    # ###########################################
-    # Selection
-
-    @classmethod
-    def clear_selection(cls):
-        rs.UnselectAllObjects()
-
-
-
 
 class RhinoForm(BaseForm):
     def __init__(self):
@@ -699,13 +608,11 @@ class RhinoForm(BaseForm):
 try:
     import FreeCAD
     import Part
-    App = FreeCadApp
     Form = FreeCadForm
 except ImportError:
     try:
         import rhinoscript
         import rhinoscriptsyntax as rs
-        App = RhinoApp
         Form = RhinoForm
     except ImportError:
         print("Error: wrong context, run in FreeCAD or Rhino")
@@ -714,12 +621,6 @@ except ImportError:
 
 # ############################################################################
 # Aliases
-# App-level
-active_view = App.active_view
-refresh_view = App.refresh_view
-view_all = App.view_all
-view_selection = App.view_selection
-clear_selection = App.clear_selection
 # Form Factories
 selected = Form.selected
 line = Form.line
@@ -730,7 +631,7 @@ random_curve = Form.random_curve
 P = euclid.Point3                           # x, y, z
 V = euclid.Vector3                          # x, y, z
 M = euclid.Matrix4                          #
-tM = euclid.Matrix4.new_translate            # x, y, z
+tM = euclid.Matrix4.new_translate           # x, y, z
 sM = euclid.Matrix4.new_scale               # x, y, z
 rM = euclid.Matrix4.new_rotate_euler        # x, y, z
 rxM = euclid.Matrix4.new_rotatex            # angle
