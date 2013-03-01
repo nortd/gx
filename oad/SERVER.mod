@@ -17,8 +17,11 @@ VAR socketdev serverSocket;
 VAR num instructionCode;
 VAR num params{10};
 VAR num nParams;
-!PERS string ipController:= "192.168.125.1";
-PERS string ipController:= "127.0.0.1"; !localhost
+PERS string ipController:= "192.168.125.1";
+!PERS string ipController:= "192.168.126.10";
+!PERS string ipController:= "192.168.126.1";
+!PERS string ipController:= "192.168.126.1";
+!PERS string ipController:= "127.0.0.1"; !localhost
 !PERS string ipController:= "192.168.1.7"; !mlab Network
 PERS num serverPort:= 5000;
 

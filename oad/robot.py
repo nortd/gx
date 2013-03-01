@@ -35,7 +35,7 @@ class Robot:
             self.setJoints()
 
     def connect(self):        
-        if verbose: print 'Attempting to connect to ABB robot at', self.remote
+        if self.v: print 'Attempting to connect to ABB robot at', self.remote
         self.robsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.robsock.connect(self.remote)
 

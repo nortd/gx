@@ -1,0 +1,4 @@
+MODULE MainModule
+   PROC Main()
+   ENDPROC
+ENDMODULE
