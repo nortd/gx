@@ -78,7 +78,7 @@ class BaseForm():
     def derivative2_at(self, t, paramNormalized=True): pass
     def derivative3_at(self, t, paramNormalized=True): pass
     def closest_curve_point(self, pt): pass
-    def tessellate(self, param): pass
+    def tessellate(self, num): pass
     # Surface Methods
     # def normal_at(self, u, v, paramNormalized=True): pass
     # General Geometry Methods

@@ -1,6 +1,7 @@
 
 from app import *
 from form import *
+from robots import *
 
 # reload dependencies when being reloaded
 try:
@@ -8,6 +9,8 @@ try:
     from app import *
     reload(form)
     from form import *
+    reload(robots)
+    from robots import *
 except ImportError:
 	pass
 
