@@ -1,4 +1,4 @@
-Generative Expressions Library
+Generative Expressions Library (pre-alpha)
 ==============================
 
 gx is a library for generating geometry in FreeCAD and Rhino,
@@ -9,7 +9,7 @@ Installation
 -------------
 The library can be installed into python's "dist-packages"
 like any other library or used in place. Latter has the advantage
-of being unaffected by changes in future changes in gx. For this
+of being unaffected by future changes in gx. For this
 copy the gx directory to a convenient location and start adding 
 your scripts and apps to the "apps" sub-directory. 
 
