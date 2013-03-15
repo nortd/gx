@@ -6,11 +6,10 @@ this socket it receives commands that get mapped to RAPID
 command pretty much one-to-one.
 """
 
-import form
-import oad
-
-import baserobot
-
+from gx.libs import form
+from gx.libs.robots import baserobot
+from gx.libs.oad import robot as oadrobot
+    
 
 ABB_CONTROLLER_IP = "192.168.125.1"
 
@@ -19,7 +18,7 @@ class Robot(baserobot.Robot):
 
 	def __init__(self, ip=ABB_CONTROLLER_IP, port=5000):
 		baserobot.Robot.__init__(self)
-		self.oadrobot = oad.robot.Robot(IP=ip, PORT=port)
+		self.oadrobot = oadrobot.Robot(IP=ip, PORT=port)
 
 	def connect(self):
 		self.oadrobot.connect()

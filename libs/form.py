@@ -29,9 +29,13 @@ Resources, example scripts
 
 """
 
+import sys
 import math
 import random
-from libs import euclid
+
+from gx import settings
+from .euclid import euclid
+
 
 
 __author__  = 'Stefan Hechenberger <stefan@nortd.com>'
@@ -40,6 +44,8 @@ __all__ = ['selected', 'line', 'circle', 'interpolation_curve', 'random_curve',
            'Q', 'aQ', 'eQ', 'mQ', 'iQ']
 
 
+def yo():
+    print('yoyuyou')
 
 # ############################################################################
 # General Implementation
@@ -610,13 +616,21 @@ try:
     import Part
     Form = FreeCadForm
 except ImportError:
+    # try to embed FreeCAD without GUI
     try:
-        import rhinoscript
-        import rhinoscriptsyntax as rs
-        Form = RhinoForm
-    except ImportError:
-        print("Error: wrong context, run in FreeCAD or Rhino")
-
+        sys.path.append(settings.FREECAD_DYLIB_PATH)
+        import FreeCAD
+        import Part
+        Form = FreeCadForm
+    except ValueError:
+        try:
+            import rhinoscript
+            import rhinoscriptsyntax as rs
+            Form = RhinoForm
+        except ImportError:
+            print("\nError: wrong context, run in FreeCAD or Rhino\n")
+            # setup a dummy
+            Form = BaseForm
 
 
 # ############################################################################

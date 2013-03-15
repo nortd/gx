@@ -5,6 +5,19 @@ gx is a library for generating geometry in FreeCAD and Rhino,
 and deriving fabrication instruction for machine control.
 
 
+Installation
+-------------
+The library can be installed into python's "dist-packages"
+like any other library or used in place. Latter has the advantage
+of being unaffected by changes in future changes in gx. For this
+copy the gx directory to a convenient location and start adding 
+your scripts and apps to the "apps" sub-directory. 
+
+To add gx permanently to your python search path add a "gx.pth" 
+file to your "dist-packages" directory. The file should contain 
+the path to gx as a single line.
+
+
 open-abb-driver setup
 ---------------------
 
@@ -19,3 +32,4 @@ open-abb-driver setup
 - put controller in automatic mode (usually key-switch) and turn on motors
 - run RAPID program
 - connect/control with the robot.py module
+

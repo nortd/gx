@@ -1,12 +1,18 @@
 from __future__ import print_function  # need print func in lambda
 from __future__ import division  # true division from integers
 
+import sys
+
+from gx import settings
+
+
 
 __author__  = 'Stefan Hechenberger <stefan@nortd.com>'
 __all__ = ['active_view', 'refresh_view', 'view_all', 'view_selection',
-           'clear_selection', 'wait_cursor', 'normal_cursor']
+           'clear_selection', 'wait_cursor', 'normal_cursor', 'say']
 
-
+def say():
+    print("say7")
 
 # ############################################################################
 # General Implementation
@@ -52,15 +58,22 @@ class FreeCadApp(BaseApp):
     @classmethod
     def get_view_object(cls, name):
         """Get the view representation part of the object."""
-        return FreeCAD.ActiveDocument.getObject(name).ViewObject
+        if hasattr(FreeCAD, 'Gui'):
+            return FreeCAD.ActiveDocument.getObject(name).ViewObject
+        else:
+            return None
 
     @classmethod
     def active_view(cls):
-        return FreeCAD.Gui.ActiveDocument.ActiveView
+        if hasattr(FreeCAD, 'Gui'):
+            return FreeCAD.Gui.ActiveDocument.ActiveView
+        else:
+            return None
 
     @classmethod
     def refresh_view(cls):
-        FreeCAD.ActiveDocument.recompute()
+        if hasattr(FreeCAD, 'Gui'):
+            FreeCAD.ActiveDocument.recompute()
 
     @classmethod
     def view_all(cls):
@@ -68,26 +81,30 @@ class FreeCadApp(BaseApp):
 
     @classmethod
     def view_selection(cls):
-        FreeCAD.Gui.SendMsgToActiveView("ViewSelection")
+        if hasattr(FreeCAD, 'Gui'):
+            FreeCAD.Gui.SendMsgToActiveView("ViewSelection")
 
     # ###########################################
     # Selection
 
     @classmethod
     def clear_selection(cls):
-        FreeCAD.Gui.Selection.clearSelection()
+        if hasattr(FreeCAD, 'Gui'):
+            FreeCAD.Gui.Selection.clearSelection()
 
     # ###########################################
     # Cursor
 
     @classmethod
-    def wait_cursor(cls): 
-        from PyQt4 import QtCore,QtGui
-        QtGui.qApp.setOverrideCursor(QtCore.Qt.WaitCursor)
+    def wait_cursor(cls):
+        if hasattr(FreeCAD, 'Gui'):
+            from PyQt4 import QtCore,QtGui
+            QtGui.qApp.setOverrideCursor(QtCore.Qt.WaitCursor)
     @classmethod
     def normal_cursor(cls):
-        from PyQt4 import QtCore,QtGui
-        QtGui.qApp.restoreOverrideCursor()
+        if hasattr(FreeCAD, 'Gui'):
+            from PyQt4 import QtCore,QtGui
+            QtGui.qApp.restoreOverrideCursor()
 
 
 
@@ -133,13 +150,28 @@ try:
     import FreeCAD
     import Part
     App = FreeCadApp
+    if hasattr(FreeCAD, 'Gui'):
+        print("INFO: using FreeCAD")
+    else:
+        print("INFO: using embedded FreeCAD")
 except ImportError:
+    # try to embed FreeCAD without GUI
     try:
-        import rhinoscript
-        import rhinoscriptsyntax as rs
-        App = RhinoApp
-    except ImportError:
-        print("Error: wrong context, run in FreeCAD or Rhino")
+        sys.path.append(settings.FREECAD_DYLIB_PATH)
+        import FreeCAD
+        import Part
+        App = FreeCadApp
+        print("INFO: using embedded FreeCAD")
+    except ValueError:
+        try:
+            import rhinoscript
+            import rhinoscriptsyntax as rs
+            App = RhinoApp
+            print ("INFO: using Rhino")
+        except ImportError:
+            print("\nError: wrong context, run in FreeCAD or Rhino\n")
+            # setup a dummy
+            App = BaseApp
 
 
 
