@@ -1,7 +1,7 @@
 """
 
 robot = openabbrobot.Robot()
-robot = abbrapidwriter.Robot()
+robot = rapidrobot.Robot()
 
 """
 
@@ -16,8 +16,9 @@ class Robot():
 	def connect(self): pass
 	def move_linear(self, pose): pass
 	def speed(): pass
+	def reset(): pass
 
-	def follow_curve(self, curve, num=10, orientation=[0,0,1,0], robot=1):
+	def add_curve(self, curve, num=10, orientation=[0,0,1,0], robot=1):
 		# if not isinstance(curve, form.BaseForm):
 		# 	print "error, not a form object"
 		# 	return
@@ -27,5 +28,10 @@ class Robot():
 			return
 
 		points = curve.tessellate(num)
+		first = True
 		for pt in points:
-			self.move_linear([list(pt),orientation], robot)
+			if first:
+				self.move_joint(list(pt), orientation, robot)
+				first = False
+			else:
+				self.move_linear(list(pt), orientation, robot)

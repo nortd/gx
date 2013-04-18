@@ -8,7 +8,8 @@ from gx import settings
 
 
 __author__  = 'Stefan Hechenberger <stefan@nortd.com>'
-__all__ = ['active_view', 'refresh_view', 'view_all', 'view_selection',
+__all__ = ['error', 'warn', 'log', 'message',
+           'active_view', 'refresh_view', 'view_all', 'view_selection', 'clear',
            'clear_selection', 'wait_cursor', 'normal_cursor', 'say']
 
 def say():
@@ -23,11 +24,18 @@ class BaseApp():
 
     # ###########################################
     # implemented in FreeCadApp, and RhinoApp
+    
+    # Logging
+    def error(cls, msg): pass
+    def warn(cls, msg): pass
+    def log(cls, msg): pass
+    def message(cls, msg): pass
     # Document Methods
     def active_view(cls): pass
     def refresh_view(cls): pass
     def view_all(cls): pass
     def view_selection(cls): pass
+    def clear(cls): pass
     # Selection
     def clear_selection(cls): pass
     # Cursor
@@ -43,6 +51,25 @@ class BaseApp():
 class FreeCadApp(BaseApp):
     def __init(self):
         BaseApp.__init__(self)
+
+    # ###########################################
+    # Logging
+    @classmethod
+    def error(cls, msg):
+        FreeCAD.Console.PrintError(msg)
+
+    @classmethod
+    def warn(cls, msg):
+        FreeCAD.Console.PrintWarning(msg)
+
+    @classmethod
+    def log(cls, msg):
+        FreeCAD.Console.PrintLog(msg)
+
+    @classmethod
+    def message(cls, msg):
+        FreeCAD.Console.PrintMessage(msg)
+
 
     # ###########################################
     # Document Methods
@@ -84,6 +111,15 @@ class FreeCadApp(BaseApp):
         if hasattr(FreeCAD, 'Gui'):
             FreeCAD.Gui.SendMsgToActiveView("ViewSelection")
 
+    @classmethod
+    def clear(cls):
+        doc = FreeCAD.ActiveDocument
+        if doc:
+            for obj in FreeCAD.ActiveDocument.Objects:
+                FreeCAD.ActiveDocument.removeObject(obj.Name)
+
+
+
     # ###########################################
     # Selection
 
@@ -116,6 +152,24 @@ class RhinoApp(BaseApp):
         BaseApp.__init__(self)
 
     # ###########################################
+    # Logging
+    @classmethod
+    def error(cls, msg):
+        print("ERROR: " + msg)
+
+    @classmethod
+    def warn(cls, msg):
+        print("WARNING: " + msg)
+
+    @classmethod
+    def log(cls, msg):
+        print("LOG: " + msg)
+
+    @classmethod
+    def message(cls, msg):
+        print("MESSAGE: " + msg)
+
+    # ###########################################
     # Document Methods
 
     @classmethod
@@ -133,6 +187,13 @@ class RhinoApp(BaseApp):
     @classmethod
     def view_selection(cls):
         rs.ZoomSelected()
+
+    @classmethod
+    def clear(cls):
+        count = rs.UnselectAllObjects()
+        object_ids = rs.InvertSelectedObjects()
+        rs.DeleteObjects(object_ids)
+
 
     # ###########################################
     # Selection
@@ -177,11 +238,17 @@ except ImportError:
 
 # ############################################################################
 # Aliases
-# App-level
+# Logging
+error = App.error
+warn = App.warn
+log = App.log
+message = App.message
+# Document
 active_view = App.active_view
 refresh_view = App.refresh_view
 view_all = App.view_all
 view_selection = App.view_selection
+clear = App.clear
 # Selection
 clear_selection = App.clear_selection
 # Cursor

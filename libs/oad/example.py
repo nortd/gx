@@ -11,3 +11,4 @@ quat_stuff = tr.quaternion_multiply(quat_down,
 tr.quaternion_about_axis(np.radians(30), [0,1,0])) #rotate 30 degrees
 # around the Y axis
 r.setCartesian([[800,0,1000], quat_stuff])
+r.close()

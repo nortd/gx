@@ -23,10 +23,12 @@ class Robot(baserobot.Robot):
 	def connect(self):
 		self.oadrobot.connect()
 
-	def move_linear(self, pose, robot=1):
+	def close(self):
+		self.oadrobot.close()
+
+	def move_linear(self, pos, orient, robot=1):
+		"""Linear move to position and orientation
 		"""
-		pose: either [location_pt, orientaion_quat] or [px,py,pz,q1,q2,q3,q4]
-		"""
-		self.oadrobot.setCartesian(pose)
+		self.oadrobot.setCartesian([pos, orient])
 
 			

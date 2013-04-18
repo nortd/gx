@@ -39,13 +39,12 @@ from .euclid import euclid
 
 
 __author__  = 'Stefan Hechenberger <stefan@nortd.com>'
-__all__ = ['selected', 'line', 'circle', 'interpolation_curve', 'random_curve',
+__all__ = ['selected', 'point', 'line', 'circle', 'interpolation_curve', 'random_curve',
+            'translate', 'scale', 'rotate',
            'P','V', 'M', 'tM', 'sM', 'rM', 'raM', 'rxM', 'ryM', 'rzM',
            'Q', 'aQ', 'eQ', 'mQ', 'iQ']
 
 
-def yo():
-    print('yoyuyou')
 
 # ############################################################################
 # General Implementation
@@ -61,6 +60,7 @@ class BaseForm():
     # implemented in FreeCadForm, and RhinoForm
     # Factories
     def selected(cls): pass
+    def point(cls, p): pass
     def line(cls, p1, p2): pass
     def circle(cls, p1, p2): pass
     def interpolation_curve(cls, pts): pass
@@ -83,7 +83,7 @@ class BaseForm():
     def derivative1_at(self, t, paramNormalized=True): pass
     def derivative2_at(self, t, paramNormalized=True): pass
     def derivative3_at(self, t, paramNormalized=True): pass
-    def closest_curve_point(self, pt): pass
+    def closest_curve_point(self, pt, paramNormalized=True): pass
     def tessellate(self, num): pass
     # Surface Methods
     # def normal_at(self, u, v, paramNormalized=True): pass
@@ -94,7 +94,10 @@ class BaseForm():
     def transform(self, mat): pass
     def translate(self, x, y, z):
         self.transform(tM(x, y, z))
-    def scale(self, x, y, z, center=(0,0,0)):
+    def scale(self, x, y=None, z=None, center=(0,0,0)):
+        if not y or not z:
+            y = x
+            z = x
         if center == V():
             mat = sM(x,y,z)
         else:
@@ -160,11 +163,6 @@ class BaseForm():
 class FreeCadForm(BaseForm):
     def __init__(self):
         BaseForm.__init__(self)
-        self.error = FreeCAD.Console.PrintError
-        self.warn = FreeCAD.Console.PrintWarning
-        self.log = FreeCAD.Console.PrintLog
-        self.message = FreeCAD.Console.PrintMessage
-
         if FreeCAD.ActiveDocument == None:
             FreeCAD.newDocument()
 
@@ -183,21 +181,30 @@ class FreeCadForm(BaseForm):
             return None
 
     @classmethod
+    def point(cls, p):
+        self = cls()
+        # self.obj = FreeCAD.ActiveDocument.addObject("Part::Feature","gxPoint")
+        # shape = Draft.makePoint(p[0], p[1], p[2])
+        # self.obj.Shape = shape
+        self.obj = Draft.makePoint(p[0], p[1], p[2])
+        self.obj.Label = u'gxPoint'
+        return self
+
+    @classmethod
     def line(cls, p1, p2):
         self = cls()
-        self.obj = FreeCAD.ActiveDocument.addObject("Part::Feature","hyLine")
+        self.obj = FreeCAD.ActiveDocument.addObject("Part::Feature","gxLine")
         shape = Part.makeLine(tuple(p1), tuple(p2))  # Part.TopoShape
         self.obj.Shape = shape
         # self.obj = Part.makeLine(p1, p2)
         # Part.show(self.obj)
-        self.message("line made")
         # FreeCAD.Console.PrintMessage("line made")
         return self
 
     @classmethod
     def circle(cls, r):
         self = cls()
-        self.obj = FreeCAD.ActiveDocument.addObject("Part::Feature","hyCircle")
+        self.obj = FreeCAD.ActiveDocument.addObject("Part::Feature","gxCircle")
         circ = Part.Circle()  # Part.GeomCircle
         circ.Radius = float(r)
         self.obj.Shape = circ.toShape()
@@ -208,7 +215,7 @@ class FreeCadForm(BaseForm):
     @classmethod
     def interpolation_curve(cls, pts):
         self = cls()
-        self.obj = FreeCAD.ActiveDocument.addObject("Part::Feature","hyCurve")
+        self.obj = FreeCAD.ActiveDocument.addObject("Part::Feature","gxCurve")
         crv = Part.BSplineCurve()  # Part.GeomCircle
         pts_tuples = []  # make sure points are tuples
         for pt in pts:
@@ -222,7 +229,7 @@ class FreeCadForm(BaseForm):
         nPts = int(nPts)
         if nPts == 0: return None
         self = cls()
-        self.obj = FreeCAD.ActiveDocument.addObject("Part::Feature","hyCurve")
+        self.obj = FreeCAD.ActiveDocument.addObject("Part::Feature","gxCurve")
         crv = Part.BSplineCurve()
         pts = []
         step = float(xr[1]-xr[0])/nPts
@@ -339,9 +346,11 @@ class FreeCadForm(BaseForm):
             self.error("not a curve")
             return None
 
-    def closest_curve_point(self, pt):
+    def closest_curve_point(self, pt, paramNormalized=True):
         if self.is_curve():
-            return self.obj.Shape.Curve.parameter(FreeCAD.Vector(pt[0],pt[1],pt[2]))
+            t = self.obj.Shape.Curve.parameter(FreeCAD.Vector(pt[0],pt[1],pt[2]))
+            if paramNormalized: t = self._param_to_normalized(t)
+            return t
         else:
             self.error("not a curve")
             return None
@@ -359,8 +368,13 @@ class FreeCadForm(BaseForm):
 
     def _param_from_normalized(self, t):
         # same as 0-self.obj.Shape.Length ?
-        return self.obj.Shape.FirstParameter + \
-               t*(self.obj.Shape.LastParameter-self.obj.Shape.FirstParameter)
+        return (self.obj.Shape.FirstParameter + 
+               t*(self.obj.Shape.LastParameter-self.obj.Shape.FirstParameter))
+
+    def _param_to_normalized(self, t):
+        return ((t - self.obj.Shape.FirstParameter)/
+               (self.obj.Shape.LastParameter-self.obj.Shape.FirstParameter))
+
 
 
     # ###########################################
@@ -401,11 +415,6 @@ class FreeCadForm(BaseForm):
 class RhinoForm(BaseForm):
     def __init__(self):
         BaseForm.__init__(self)
-        self.error = lambda msg: print("ERROR: " + msg)
-        self.warn = lambda msg: print("WARNING: " + msg)
-        self.log = lambda msg: print("LOG: " + msg)
-        self.message = lambda msg: print("MESSAGE: " + msg)
-
 
     # ###########################################
     # Factories
@@ -419,6 +428,12 @@ class RhinoForm(BaseForm):
             return self
         else:
             return None
+
+    @classmethod
+    def point(cls, p):
+        self = cls()
+        self.obj = rs.AddPoint(p)
+        return self
 
     @classmethod
     def line(cls, p1, p2):
@@ -568,9 +583,11 @@ class RhinoForm(BaseForm):
             self.error("not a curve")
             return None
 
-    def closest_curve_point(self, pt):
+    def closest_curve_point(self, pt, paramNormalized=True):
         if self.is_curve():
-            return rs.CurveClosestPoint(self.obj, pt)
+            t = rs.CurveClosestPoint(self.obj, pt)
+            if paramNormalized: t = self._param_to_normalized(t)
+            return t
         else:
             self.error("not a curve")
             return None
@@ -593,6 +610,11 @@ class RhinoForm(BaseForm):
         domain = rs.CurveDomain(self.obj)
         return domain[0] + t*(domain[1]-domain[0])
 
+    def _param_to_normalized(self, t):
+        domain = rs.CurveDomain(self.obj)
+        return (t - domain[0])/(domain[1]-domain[0])
+
+
 
     # ###########################################
     # Surface Methods
@@ -614,6 +636,7 @@ class RhinoForm(BaseForm):
 try:
     import FreeCAD
     import Part
+    import Draft
     Form = FreeCadForm
 except ImportError:
     # try to embed FreeCAD without GUI
@@ -621,6 +644,7 @@ except ImportError:
         sys.path.append(settings.FREECAD_DYLIB_PATH)
         import FreeCAD
         import Part
+        import Draft
         Form = FreeCadForm
     except ValueError:
         try:
@@ -637,6 +661,7 @@ except ImportError:
 # Aliases
 # Form Factories
 selected = Form.selected
+point = Form.point
 line = Form.line
 circle = Form.circle
 interpolation_curve = Form.interpolation_curve
@@ -657,3 +682,19 @@ aQ = euclid.Quaternion.new_rotate_axis      # angle, axis
 eQ = euclid.Quaternion.new_rotate_euler     # heading, attitude, bank
 mQ = euclid.Quaternion.new_rotate_matrix    # mat
 iQ = euclid.Quaternion.new_interpolate      # q1, q2, t
+# Transformation Forwarders
+def translate(x, y, z):
+    form = Form.selected()
+    if form:
+        form.translate(x,y,z)
+        form.select()
+def scale(x, y=None, z=None):
+    form = Form.selected()
+    if form:
+        form.scale(x,y,z)
+        form.select()
+def rotate(x, y, z):
+    form = Form.selected()
+    if form:
+        form.rotate(x,y,z)
+        form.select()

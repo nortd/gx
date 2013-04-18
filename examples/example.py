@@ -3,4 +3,4 @@ import gxr
 import gx
 
 
-print gx.config.VERSION
+print gx.settings.VERSION
