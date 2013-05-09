@@ -1,7 +1,7 @@
-Generative Expressions Library (pre-alpha)
+Generative Expressions Library (alpha)
 ==============================
 
-gx is a computational design library for generating geometry in FreeCAD and Rhino. It can also control industrial robots for direct fabrication. At the moment this projects is in its early phase and the API is a moving target. It will be a while until we have distilled all the complex concepts down to a super simple interface. If you want to join us in this early phase drop us a line (helloworld|at|nortd.com).
+gx is a computational design library for generating geometry in FreeCAD and Rhino. It can also control industrial robots for direct fabrication. At the moment this projects is in its early phase and the API is a moving target. It will be a while until we have distilled all the complex concepts down to a super simple interface. If you want to join us in this early phase drop us a line (helloworld at nortd . com).
 
 
 Howto
