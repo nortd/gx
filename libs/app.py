@@ -18,10 +18,10 @@ def say():
 # ############################################################################
 # General Implementation
 
-class BaseApp():
+class BaseApp(object):
     def __init__(self):
-        BaseApp.__init__(self)
-
+        pass
+        
     # ###########################################
     # implemented in FreeCadApp, and RhinoApp
     

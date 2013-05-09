@@ -8,7 +8,7 @@ robot = rapidrobot.Robot()
 from gx.libs import form
 
 
-class Robot():
+class Robot(object):
 
 	def __init__(self):
 		pass

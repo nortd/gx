@@ -49,7 +49,7 @@ __all__ = ['selected', 'point', 'line', 'circle', 'interpolation_curve', 'random
 # ############################################################################
 # General Implementation
 
-class BaseForm():
+class BaseForm(object):
 
     TO_RAD = math.pi/180.0
 

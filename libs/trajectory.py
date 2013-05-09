@@ -22,3 +22,28 @@ def robot_follow_curve(curve_form):
 		return True
 	else:
 		return False
+
+
+
+class Trajectory(object):
+    def __init__(self):
+
+    # ###########################################
+    # implemented in FreeCadApp, and RhinoApp
+    
+    # Logging
+    def error(cls, msg): pass
+    def warn(cls, msg): pass
+    def log(cls, msg): pass
+    def message(cls, msg): pass
+    # Document Methods
+    def active_view(cls): pass
+    def refresh_view(cls): pass
+    def view_all(cls): pass
+    def view_selection(cls): pass
+    def clear(cls): pass
+    # Selection
+    def clear_selection(cls): pass
+    # Cursor
+    def wait_cursor(cls): pass    # FreeCAD only
+    def normal_cursor(cls): pass  # FreeCAD only
