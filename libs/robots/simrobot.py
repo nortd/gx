@@ -6,6 +6,8 @@ this socket it receives commands that get mapped to RAPID
 command pretty much one-to-one.
 """
 
+import os
+import sys
 import math
 from gx.libs import form
 from gx.libs.robots import baserobot
@@ -36,11 +38,19 @@ class Robot(baserobot.Robot):
 
         # create a robot
         self.rob = doc.addObject("Robot::RobotObject", name)
-        self.rob.RobotVrmlFile = FreeCAD.getResourceDir()+"Mod/Robot/Lib/Kuka/kr500_1.wrl"
-        self.rob.RobotKinematicFile = FreeCAD.getResourceDir()+"Mod/Robot/Lib/Kuka/kr500_1.csv"
+        # self.rob.RobotVrmlFile = FreeCAD.getResourceDir()+"Mod/Robot/Lib/Kuka/kr500_1.wrl"
+        # self.rob.RobotKinematicFile = FreeCAD.getResourceDir()+"Mod/Robot/Lib/Kuka/kr500_1.csv"
+        thislocation = os.path.dirname(os.path.realpath(__file__))
+        # self.rob.RobotVrmlFile = os.path.join(thislocation, 'kr16.wrl')
+        # self.rob.RobotKinematicFile = os.path.join(thislocation, 'irb2600-20-1.65.csv')
+        # self.rob.RobotKinematicFile = os.path.join(thislocation, 'kr_16.csv')
+        defs = self.dynamic_def_files('irb2600')
+        self.rob.RobotVrmlFile = defs['wrl']
+        self.rob.RobotKinematicFile = defs['csv']
+
         # Kuka-specific
-        self.rob.Axis2 = -90
-        self.rob.Axis3 = 90
+        # self.rob.Axis2 = -90
+        # self.rob.Axis3 = 90
 
         # create a trajectory
         self.trajects = []
@@ -48,7 +58,14 @@ class Robot(baserobot.Robot):
         startTcp = self.rob.Tcp
         t.insertWaypoints(startTcp)
         for i in range(7):
-            t.insertWaypoints(fcRobot.Waypoint(FreeCAD.Placement(FreeCAD.Vector(2000,1000,i*100+1000),FreeCAD.Vector(0,1,0),i),"LIN","Pt"))
+            # orient = euclid.Quaternion.new_rotate_axis(ang_x*TO_RAD, euclid.Vector3(1, 0, 0))
+            qx = euclid.Quaternion.new_rotate_axis(-45*TO_RAD, euclid.Vector3(1, 0, 0))
+            qy = euclid.Quaternion.new_rotate_axis(i*20*TO_RAD, euclid.Vector3(0, 1, 0))
+            orient = qx*qy
+            # FreeCAD.Rotation (-0.479426,-0,-0,0.877583)
+            fcOrient = FreeCAD.Rotation(orient.x, orient.y, orient.z, orient.w)
+            fcPos = FreeCAD.Vector(1000,500,i*100+500)
+            t.insertWaypoints(fcRobot.Waypoint(FreeCAD.Placement(fcPos, fcOrient),"LIN","Pt"))
         t.insertWaypoints(startTcp) # end point of the trajectory
         # App.activeDocument().Trajectory.Trajectory = t
         self.trajects.append(t)
@@ -160,4 +177,77 @@ class Robot(baserobot.Robot):
         self.rob.Axis4 = axes[3]
         self.rob.Axis5 = axes[4]
         self.rob.Axis6 = axes[5]
+
+
+
+    def dynamic_def_files(self, robot_name):
+        dh_params = None
+        vrml_file = None
+        if robot_name == 'kr16':
+            # The Denavit-Hartenberg parameters and model for a Kuka KR16.
+            dh_params = {
+                'axis1':{'a':260.0, 'alpha':-90.0, 'd':675.0, 'theta':0.0, 'rotDir':-1, 'maxAngle':185.0, 'minAngle':-185.0, 'axisVel':156.0},
+                'axis2':{'a':680.0, 'alpha':0.0, 'd':0.0, 'theta':0.0, 'rotDir':1, 'maxAngle':35.0, 'minAngle':-155.0, 'axisVel':156.0},
+                'axis3':{'a':-35.0, 'alpha':90.0, 'd':0.0, 'theta':-90.0, 'rotDir':1, 'maxAngle':154.0, 'minAngle':-130.0, 'axisVel':156.0},
+                'axis4':{'a':0.0, 'alpha':-90.0, 'd':-675.0, 'theta':0.0, 'rotDir':1, 'maxAngle':350.0, 'minAngle':-350.0, 'axisVel':330.0},
+                'axis5':{'a':0.0, 'alpha':90.0, 'd':0.0, 'theta':0.0, 'rotDir':1, 'maxAngle':130.0, 'minAngle':-130.0, 'axisVel':330.0},
+                'axis6':{'a':0.0, 'alpha':180.0, 'd':-158.0, 'theta':180.0, 'rotDir':1, 'maxAngle':350.0, 'minAngle':-350.0, 'axisVel':615.0},
+            }
+            vrml_file = FreeCAD.getResourceDir()+"Mod/Robot/Lib/Kuka/kr16.wrl"
+        elif robot_name == 'kr500':
+            # The Denavit-Hartenberg parameters and model for a Kuka KR500.
+            dh_params = {
+                'axis1':{'a':500.0, 'alpha':-90.0, 'd':1045.0, 'theta':0.0, 'rotDir':-1, 'maxAngle':185.0, 'minAngle':-185.0, 'axisVel':156.0},
+                'axis2':{'a':1300.0, 'alpha':0.0, 'd':0.0, 'theta':0.0, 'rotDir':1, 'maxAngle':35.0, 'minAngle':-155.0, 'axisVel':156.0},
+                'axis3':{'a':55.0, 'alpha':90.0, 'd':0.0, 'theta':-90.0, 'rotDir':1, 'maxAngle':154.0, 'minAngle':-130.0, 'axisVel':156.0},
+                'axis4':{'a':0.0, 'alpha':-90.0, 'd':-1025.0, 'theta':0.0, 'rotDir':1, 'maxAngle':350.0, 'minAngle':-350.0, 'axisVel':330.0},
+                'axis5':{'a':0.0, 'alpha':90.0, 'd':0.0, 'theta':0.0, 'rotDir':1, 'maxAngle':130.0, 'minAngle':-130.0, 'axisVel':330.0},
+                'axis6':{'a':0.0, 'alpha':180.0, 'd':-300.0, 'theta':180.0, 'rotDir':1, 'maxAngle':350.0, 'minAngle':-350.0, 'axisVel':615.0},
+            }
+            vrml_file = FreeCAD.getResourceDir()+"Mod/Robot/Lib/Kuka/kr500_1.wrl"
+        elif robot_name == 'irb2600':
+            # The Denavit-Hartenberg parameters and model for an ABB IRB2600-20-1.65.
+            # it appears to be ok to invert a and alpha simultaneously
+            # min/maxAngle is min/max theta
+            dh_params = {
+                'axis1':{'a':150.0, 'alpha':-90.0, 'd':445.0, 'theta':0.0, 'rotDir':-1, 'maxAngle':185.0, 'minAngle':-185.0, 'axisVel':156.0},
+                'axis2':{'a':700.0, 'alpha':0.0, 'd':0.0, 'theta':0.0, 'rotDir':1, 'maxAngle':35.0, 'minAngle':-155.0, 'axisVel':156.0},
+                'axis3':{'a':-115.0, 'alpha':90.0, 'd':0.0, 'theta':-90.0, 'rotDir':1, 'maxAngle':154.0, 'minAngle':-130.0, 'axisVel':156.0},
+                'axis4':{'a':0.0, 'alpha':-90.0, 'd':-795.0, 'theta':0.0, 'rotDir':1, 'maxAngle':350.0, 'minAngle':-350.0, 'axisVel':330.0},
+                'axis5':{'a':0.0, 'alpha':90.0, 'd':0.0, 'theta':0.0, 'rotDir':1, 'maxAngle':130.0, 'minAngle':-130.0, 'axisVel':330.0},
+                'axis6':{'a':0.0, 'alpha':180.0, 'd':-85.0, 'theta':180.0, 'rotDir':1, 'maxAngle':350.0, 'minAngle':-350.0, 'axisVel':615.0},
+            }
+            thislocation = os.path.dirname(os.path.realpath(__file__))
+            vrml_file = os.path.join(thislocation, 'irb2600.wrl')
+        else:
+            print "ERROR: no dh data for robot name"
+            return
+
+        axes = ('axis1', 'axis2', 'axis3', 'axis4', 'axis5', 'axis6')
+        params = ('a', 'alpha', 'd', 'theta', 'rotDir', 'maxAngle', 'minAngle', 'axisVel')
+        csv_string = []
+        first = True
+        for param in params:
+            if first:
+                first = False
+            else:
+                csv_string.append(',   ') 
+            csv_string.append(param)
+        csv_string.append('\n')
+        for axis in axes:
+            first = True
+            for param in params:
+                if first:
+                    first = False
+                else:
+                    csv_string.append(',   ')    
+                csv_string.append(str(dh_params[axis][param]))
+            csv_string.append('\n')
+        csv_string = ''.join(csv_string)
+        thislocation = os.path.dirname(os.path.realpath(__file__))
+        filename = os.path.join(thislocation, '..', '..', 'temp', 'dh_file.csv')
+        with open(filename, 'w') as f:
+            f.write(csv_string)
+            print("INFO: DH file witten to: %s" % (filename))
+        return { 'csv': filename, 'wrl':vrml_file }
 

@@ -1,0 +1,207 @@
+#VRML V2.0 utf8
+  
+Group { children [
+  # ################################################## BASE
+  Group {
+    children [
+      Transform {  # placement
+        translation 0 0 100  # box origin
+        children
+        Shape {
+          appearance Appearance {
+            material Material { }
+          }
+          geometry Box {
+            size  675 512 200 
+          }
+        }
+      }
+    ]
+  },
+  # ################################################## AXIS1 TRANSFORM
+  Transform {  # to axis1
+    translation 0 0 0
+    rotation 1 0 0 1.5707963
+    children
+      DEF FREECAD_AXIS1 Transform { rotation 0 1 0 0 children
+        Transform {
+          rotation 1 0 0 -1.5707963
+          children
+            Transform {
+              translation 0 0 445  # to axis 2
+              children [
+  Group {
+    children [
+      # ############################ LINK1 GEOMETRY
+      Transform {  # placement
+        translation 75 0 -122.5  # box origin
+        children
+        Shape {
+          appearance Appearance {
+            material Material { }
+          }
+          geometry Box {
+            size  150 400 245 
+          }
+        }
+      }
+    ]
+  },
+  # ################################################## AXIS2 TRANSFORM
+  Transform {
+    translation 150 0 0  # to axis 2
+    #rotation 0 0 1 0
+    children
+      DEF FREECAD_AXIS2 Transform { rotation 0 1 0 0 children
+        Transform {
+          #rotation 0 0 1 0
+          children
+            Transform {
+              translation 0 0 700  # to axis 3
+              children [
+  Group {
+    children [
+      # ############################ LINK2 GEOMETRY
+      Transform {  # placement
+        translation 0 0 -350  # box origin
+        children
+        Shape {
+          appearance Appearance {
+            material Material { }
+          }
+          geometry Box {
+            size  100 100 700 
+          }
+        }
+      }
+    ]
+  },
+  # ################################################## AXIS3 TRANSFORM
+  Transform {
+    translation 0 0 0    # to axis 3
+    #rotation 0 0 1 0
+    children
+      DEF FREECAD_AXIS3 Transform { rotation 0 1 0 0 children
+        Transform {
+          #rotation 0 0 1 0
+          children
+            Transform {
+              translation 0 0 115    # to axis 4
+              children [
+  Group {
+    children [
+      # ############################ LINK3 GEOMETRY
+      Transform {  # placement
+        translation 150 0 0  # box origin
+        children
+        Shape {
+          appearance Appearance {
+            material Material { }
+          }
+          geometry Box {
+            size  300 230 230 
+          }
+        }
+      }
+    ]
+  },
+  # ################################################## AXIS4 TRANSFORM
+  Transform {
+    translation 0 0 0    # to axis 4
+    rotation 0 0 1 1.5707963
+    children
+      DEF FREECAD_AXIS4 Transform { rotation 0 1 0 0 children
+        Transform {
+          rotation 0 0 1 -1.5707963
+          children
+            Transform {
+              translation 795 0 0    # to axis 5
+              children [
+  Group {
+    children [
+      # ############################ LINK4 GEOMETRY
+      Transform {  # placement
+        translation -247.5 0 0  # box origin
+        children
+        Shape {
+          appearance Appearance {
+            material Material { }
+          }
+          geometry Box {
+            size  495 100 100 
+          }
+        }
+      }
+    ]
+  },
+  # ################################################## AXIS5 TRANSFORM
+  Transform {
+    translation 0 0 0    # to axis 5
+    rotation 0 1 0 1.5707963
+    children
+      DEF FREECAD_AXIS5 Transform { rotation 0 1 0 0 children
+        Transform {
+          rotation 0 1 0 -1.5707963
+          children
+            Transform {
+              translation 0 0 0    # to axis 6
+              children [
+  Group {
+    children [
+      # ############################ LINK5 GEOMETRY
+      Transform {  # placement
+        translation 25 0 0  # box origin
+        children
+        Shape {
+          appearance Appearance {
+            material Material { }
+          }
+          geometry Box {
+            size  50 150 150 
+          }
+        }
+      }
+    ] 
+  },
+  # ################################################## AXIS6 TRANSFORM
+  Transform {
+    translation 85 0 0    # to axis 6
+    rotation 0 0 1 1.5707963
+    children
+      DEF FREECAD_AXIS6 Transform { rotation 0 1 0 0 children
+        Transform {
+          rotation 0 0 1 -1.5707963
+          children
+            Transform {
+              translation 0 0 0
+              children [
+  Group {
+    children [
+      # ############################ LINK6 GEOMETRY
+      Transform {  # placement
+        translation -17.5 0 0  # box origin
+        children
+        Shape {
+          appearance Appearance {
+            material Material { }
+          }
+          geometry Box {
+            size  35 50 50 
+          }
+        }
+      }
+    ]
+  },
+    
+  Group {
+    children [
+      # ########### END EFFECTOR GEOMETRY (optional)
+    ]
+  }
+]}}}},
+]}}}},
+]}}}},
+]}}}},
+]}}}},
+]}}}}
+]}
