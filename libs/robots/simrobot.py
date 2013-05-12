@@ -51,11 +51,17 @@ class Robot(baserobot.Robot):
         # Kuka-specific
         # self.rob.Axis2 = -90
         # self.rob.Axis3 = 90
+        self.rob.Axis1 = 0
+        self.rob.Axis2 = 0
+        self.rob.Axis3 = 0
+        self.rob.Axis4 = 0
+        self.rob.Axis5 = 0
+        self.rob.Axis6 = 0
 
         # create a trajectory
         self.trajects = []
         t = doc.addObject("Robot::TrajectoryObject","Trajectory").Trajectory
-        startTcp = self.rob.Tcp
+        startTcp = self.rob.Tcp # = FreeCAD.Placement(FreeCAD.Vector(500,500,500), FreeCAD.Rotation(1,0,0,1))
         t.insertWaypoints(startTcp)
         for i in range(7):
             # orient = euclid.Quaternion.new_rotate_axis(ang_x*TO_RAD, euclid.Vector3(1, 0, 0))
@@ -210,12 +216,12 @@ class Robot(baserobot.Robot):
             # it appears to be ok to invert a and alpha simultaneously
             # min/maxAngle is min/max theta
             dh_params = {
-                'axis1':{'a':150.0, 'alpha':-90.0, 'd':445.0, 'theta':0.0, 'rotDir':-1, 'maxAngle':185.0, 'minAngle':-185.0, 'axisVel':156.0},
-                'axis2':{'a':700.0, 'alpha':0.0, 'd':0.0, 'theta':0.0, 'rotDir':1, 'maxAngle':35.0, 'minAngle':-155.0, 'axisVel':156.0},
-                'axis3':{'a':-115.0, 'alpha':90.0, 'd':0.0, 'theta':-90.0, 'rotDir':1, 'maxAngle':154.0, 'minAngle':-130.0, 'axisVel':156.0},
-                'axis4':{'a':0.0, 'alpha':-90.0, 'd':-795.0, 'theta':0.0, 'rotDir':1, 'maxAngle':350.0, 'minAngle':-350.0, 'axisVel':330.0},
-                'axis5':{'a':0.0, 'alpha':90.0, 'd':0.0, 'theta':0.0, 'rotDir':1, 'maxAngle':130.0, 'minAngle':-130.0, 'axisVel':330.0},
-                'axis6':{'a':0.0, 'alpha':180.0, 'd':-85.0, 'theta':180.0, 'rotDir':1, 'maxAngle':350.0, 'minAngle':-350.0, 'axisVel':615.0},
+                'axis1':{'a':150.0, 'alpha':-90.0, 'd':445.0, 'theta':0.0, 'rotDir':1, 'maxAngle':180.0, 'minAngle':-180.0, 'axisVel':175.0},
+                'axis2':{'a':700.0, 'alpha':0.0, 'd':0.0, 'theta':-90.0, 'rotDir':1, 'maxAngle':155.0, 'minAngle':-95.0, 'axisVel':175.0},
+                'axis3':{'a':115.0, 'alpha':90.0, 'd':0.0, 'theta':0.0, 'rotDir':1, 'maxAngle':75.0, 'minAngle':-180.0, 'axisVel':175.0},
+                'axis4':{'a':0.0, 'alpha':-90.0, 'd':-795.0, 'theta':0.0, 'rotDir':1, 'maxAngle':400.0, 'minAngle':-400.0, 'axisVel':360.0},
+                'axis5':{'a':0.0, 'alpha':90.0, 'd':0.0, 'theta':0.0, 'rotDir':1, 'maxAngle':120.0, 'minAngle':-120.0, 'axisVel':360.0},
+                'axis6':{'a':0.0, 'alpha':180.0, 'd':-85.0, 'theta':180.0, 'rotDir':1, 'maxAngle':400.0, 'minAngle':-400.0, 'axisVel':500.0},
             }
             thislocation = os.path.dirname(os.path.realpath(__file__))
             vrml_file = os.path.join(thislocation, 'irb2600.wrl')
