@@ -58,23 +58,36 @@ class Robot(baserobot.Robot):
         self.rob.Axis5 = 0
         self.rob.Axis6 = 0
 
+        # change to Robot Workbench
+        FreeCAD.Gui.activateWorkbench("RobotWorkbench")
+
+        # add tool
+        self.add_circular_saw()
+
         # create a trajectory
         self.trajects = []
         t = doc.addObject("Robot::TrajectoryObject","Trajectory").Trajectory
-        startTcp = self.rob.Tcp # = FreeCAD.Placement(FreeCAD.Vector(500,500,500), FreeCAD.Rotation(1,0,0,1))
+        # startTcp = self.rob.Tcp # = FreeCAD.Placement(FreeCAD.Vector(500,500,500), FreeCAD.Rotation(1,0,0,1))
+        startTcp = self.rob.Tcp = FreeCAD.Placement(FreeCAD.Vector (1177.93, 0.0, 430.462), FreeCAD.Rotation(0,1,0,0))
+        (0, 1, 0, 0)
         t.insertWaypoints(startTcp)
         for i in range(7):
             # orient = euclid.Quaternion.new_rotate_axis(ang_x*TO_RAD, euclid.Vector3(1, 0, 0))
-            qx = euclid.Quaternion.new_rotate_axis(-45*TO_RAD, euclid.Vector3(1, 0, 0))
+            qx = euclid.Quaternion.new_rotate_axis(-90*TO_RAD, euclid.Vector3(1, 0, 0))
             qy = euclid.Quaternion.new_rotate_axis(i*20*TO_RAD, euclid.Vector3(0, 1, 0))
             orient = qx*qy
             # FreeCAD.Rotation (-0.479426,-0,-0,0.877583)
             fcOrient = FreeCAD.Rotation(orient.x, orient.y, orient.z, orient.w)
-            fcPos = FreeCAD.Vector(1000,500,i*100+500)
+            fcPos = FreeCAD.Vector(i*30+800, 500, -i*50+800)
             t.insertWaypoints(fcRobot.Waypoint(FreeCAD.Placement(fcPos, fcOrient),"LIN","Pt"))
         t.insertWaypoints(startTcp) # end point of the trajectory
         # App.activeDocument().Trajectory.Trajectory = t
         self.trajects.append(t)
+
+        # show all
+        FreeCAD.Gui.SendMsgToActiveView("ViewFit")
+        FreeCAD.Gui.activeDocument().ActiveView.viewFront()
+        doc.recompute()
 
     # def reset(self):
     #   self.trajectories = []
@@ -160,7 +173,7 @@ class Robot(baserobot.Robot):
     def axis5(self):
         return self.rob.Axis5
     @axis5.setter
-    def axis1(self, value):
+    def axis5(self, value):
         self.rob.Axis5 = value
     @property
     def axis6(self):
@@ -219,9 +232,9 @@ class Robot(baserobot.Robot):
                 'axis1':{'a':150.0, 'alpha':-90.0, 'd':445.0, 'theta':0.0, 'rotDir':1, 'maxAngle':180.0, 'minAngle':-180.0, 'axisVel':175.0},
                 'axis2':{'a':700.0, 'alpha':0.0, 'd':0.0, 'theta':-90.0, 'rotDir':1, 'maxAngle':155.0, 'minAngle':-95.0, 'axisVel':175.0},
                 'axis3':{'a':115.0, 'alpha':90.0, 'd':0.0, 'theta':0.0, 'rotDir':1, 'maxAngle':75.0, 'minAngle':-180.0, 'axisVel':175.0},
-                'axis4':{'a':0.0, 'alpha':-90.0, 'd':-795.0, 'theta':0.0, 'rotDir':1, 'maxAngle':400.0, 'minAngle':-400.0, 'axisVel':360.0},
+                'axis4':{'a':0.0, 'alpha':-90.0, 'd':-795.0, 'theta':0.0, 'rotDir':-1, 'maxAngle':400.0, 'minAngle':-400.0, 'axisVel':360.0},
                 'axis5':{'a':0.0, 'alpha':90.0, 'd':0.0, 'theta':0.0, 'rotDir':1, 'maxAngle':120.0, 'minAngle':-120.0, 'axisVel':360.0},
-                'axis6':{'a':0.0, 'alpha':180.0, 'd':-85.0, 'theta':180.0, 'rotDir':1, 'maxAngle':400.0, 'minAngle':-400.0, 'axisVel':500.0},
+                'axis6':{'a':0.0, 'alpha':180.0, 'd':-85.0, 'theta':180.0, 'rotDir':-1, 'maxAngle':400.0, 'minAngle':-400.0, 'axisVel':500.0},
             }
             thislocation = os.path.dirname(os.path.realpath(__file__))
             vrml_file = os.path.join(thislocation, 'irb2600.wrl')
@@ -257,3 +270,13 @@ class Robot(baserobot.Robot):
             print("INFO: DH file witten to: %s" % (filename))
         return { 'csv': filename, 'wrl':vrml_file }
 
+
+
+    def add_circular_saw(self):
+        thislocation = os.path.dirname(os.path.realpath(__file__))
+        vrml_file = os.path.join(thislocation, 'tools', 'circular_saw.wrl')
+        FreeCAD.Gui.insert(vrml_file, FreeCAD.activeDocument().Name)
+        self.rob.ToolShape = FreeCAD.activeDocument().circular_saw
+        self.rob.Tool.Base = (0,-50,225)
+        self.rob.ToolBase.Rotation.Q = (0,1,0,1)
+        

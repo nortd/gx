@@ -1,0 +1,165 @@
+#VRML V2.0 utf8
+  
+Group { children [
+  # ################################################## BASE
+  Group {
+    children [
+      Transform {  # placement
+        translation 0 0 100  # box origin
+        children [
+          {{ base }}
+        ]
+      }
+    ]
+  },
+  # ################################################## AXIS1 TRANSFORM
+  Transform {  # to axis1
+    translation 0 0 0
+    rotation 1 0 0 1.5707963
+    children
+      DEF FREECAD_AXIS1 Transform { rotation 0 1 0 0 children
+        Transform {
+          rotation 1 0 0 -1.5707963
+          children
+            Transform {
+              translation 0 0 0  # to axis 2
+              children [
+  Group {
+    children [
+      # ############################ LINK1 GEOMETRY
+      Transform {  # placement
+        translation 0 0 0  # box origin
+        children [
+          {{ link1 }}
+        ]
+      }
+    ]
+  },
+  # ################################################## AXIS2 TRANSFORM
+  Transform {
+    translation 150 0 445  # to axis 2
+    #rotation 0 0 1 0
+    children
+      DEF FREECAD_AXIS2 Transform { rotation 0 1 0 0 children
+        Transform {
+          #rotation 0 0 1 0
+          children
+            Transform {
+              translation -150 0 -445  # to axis 3
+              children [
+  Group {
+    children [
+      # ############################ LINK2 GEOMETRY
+      Transform {  # placement
+        translation 0 0 0   # box origin
+        children [
+          {{ link2 }}
+        ]
+      }
+    ]
+  },
+  # ################################################## AXIS3 TRANSFORM
+  Transform {
+    translation 150 0 1145    # to axis 3
+    #rotation 0 0 1 0
+    children
+      DEF FREECAD_AXIS3 Transform { rotation 0 1 0 0 children
+        Transform {
+          #rotation 0 0 1 0
+          children
+            Transform {
+              translation -150 0 -1145    # to axis 4
+              children [
+  Group {
+    children [
+      # ############################ LINK3 GEOMETRY
+      Transform {  # placement
+        translation 0 0 0  # box origin
+        children [
+          {{ link3 }}
+        ]
+      }
+    ]
+  },
+  # ################################################## AXIS4 TRANSFORM
+  Transform {
+    translation 0 0 1260    # to axis 4
+    rotation 0 0 1 -1.5707963
+    children
+      DEF FREECAD_AXIS4 Transform { rotation 0 1 0 0 children
+        Transform {
+          rotation 0 0 1 1.5707963
+          children
+            Transform {
+              translation 0 0 -1260    # to axis 5
+              children [
+  Group {
+    children [
+      # ############################ LINK4 GEOMETRY
+      Transform {  # placement
+        translation 0 0 0  # box origin
+        children [
+          {{ link4 }}
+        ]
+      }
+    ]
+  },
+  # ################################################## AXIS5 TRANSFORM
+  Transform {
+    translation 945 0 1260    # to axis 5
+    rotation 0 1 0 1.5707963
+    children
+      DEF FREECAD_AXIS5 Transform { rotation 0 1 0 0 children
+        Transform {
+          rotation 0 1 0 -1.5707963
+          children
+            Transform {
+              translation -945 0 -1260    # to axis 6
+              children [
+  Group {
+    children [
+      # ############################ LINK5 GEOMETRY
+      Transform {  # placement
+        translation 0 0 0  # box origin
+        children [
+          {{ link5 }}
+        ]
+      }
+    ] 
+  },
+  # ################################################## AXIS6 TRANSFORM
+  Transform {
+    translation 1030 0 1260    # to axis 6
+    rotation 0 0 1 -1.5707963
+    children
+      DEF FREECAD_AXIS6 Transform { rotation 0 1 0 0 children
+        Transform {
+          rotation 0 0 1 1.5707963
+          children
+            Transform {
+              translation -1030 0 -1260
+              children [
+  Group {
+    children [
+      # ############################ LINK6 GEOMETRY
+      Transform {  # placement
+        translation 0 0 0  # box origin
+        children [
+          {{ link6 }}
+        ]
+      }
+    ]
+  },
+    
+  Group {
+    children [
+      # ########### END EFFECTOR GEOMETRY (optional)
+    ]
+  }
+]}}}},
+]}}}},
+]}}}},
+]}}}},
+]}}}},
+]}}}}
+]}
