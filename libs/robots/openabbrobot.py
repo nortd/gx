@@ -1,7 +1,7 @@
 """Connects to an ABB robot through the open-abb-driver.
 
 The open-abb-driver is a RAPID program that runs on the ABB
-controller (IRC5) and opens a socket connection. through
+controller (IRC5) and opens a socket connection. Through
 this socket it receives commands that get mapped to RAPID
 command pretty much one-to-one.
 """
@@ -31,4 +31,9 @@ class Robot(baserobot.Robot):
 		"""
 		self.oadrobot.setCartesian([pos, orient])
 
+	def set_joints(self, axes=[0,0,0,0,90,0]):
+		if len(axes) == 6:
+			self.oadrobot.setJoints(axes)
+		else:
+			print("ERROR: invalid axes parameter")
 			

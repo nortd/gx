@@ -1,5 +1,6 @@
 
 import sys
+import math
 
 import settings
 
@@ -25,3 +26,6 @@ __version__ = '2013.02'
 __license__ = 'GPL3'
 __docformat__ = 'restructuredtext en'
 
+
+TO_RAD = math.pi/180.0
+TO_DEG = 180.0/math.pi

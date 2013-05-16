@@ -9,11 +9,11 @@ command pretty much one-to-one.
 import os
 import sys
 import math
+import json
 from gx.libs import form
 from gx.libs.robots import baserobot
 from gx.libs.euclid import euclid
 
-# Selecting Implementation (FreeCAD or Rhino)
 try:
     import FreeCAD
     import Part
@@ -58,36 +58,23 @@ class Robot(baserobot.Robot):
         self.rob.Axis5 = 0
         self.rob.Axis6 = 0
 
+        # path
+        self.path = None
+        self.rot_now = (0,0,0,1)
+        self.velocity_now = 2000
+        self.type_now = "LIN"
+        self.name_now = "Pt"
+        self.continuity_now = False
+
         # change to Robot Workbench
-        FreeCAD.Gui.activateWorkbench("RobotWorkbench")
-
-        # add tool
-        self.add_circular_saw()
-
-        # create a trajectory
-        self.trajects = []
-        t = doc.addObject("Robot::TrajectoryObject","Trajectory").Trajectory
-        # startTcp = self.rob.Tcp # = FreeCAD.Placement(FreeCAD.Vector(500,500,500), FreeCAD.Rotation(1,0,0,1))
-        startTcp = self.rob.Tcp = FreeCAD.Placement(FreeCAD.Vector (1177.93, 0.0, 430.462), FreeCAD.Rotation(0,1,0,0))
-        (0, 1, 0, 0)
-        t.insertWaypoints(startTcp)
-        for i in range(7):
-            # orient = euclid.Quaternion.new_rotate_axis(ang_x*TO_RAD, euclid.Vector3(1, 0, 0))
-            qx = euclid.Quaternion.new_rotate_axis(-90*TO_RAD, euclid.Vector3(1, 0, 0))
-            qy = euclid.Quaternion.new_rotate_axis(i*20*TO_RAD, euclid.Vector3(0, 1, 0))
-            orient = qx*qy
-            # FreeCAD.Rotation (-0.479426,-0,-0,0.877583)
-            fcOrient = FreeCAD.Rotation(orient.x, orient.y, orient.z, orient.w)
-            fcPos = FreeCAD.Vector(i*30+800, 500, -i*50+800)
-            t.insertWaypoints(fcRobot.Waypoint(FreeCAD.Placement(fcPos, fcOrient),"LIN","Pt"))
-        t.insertWaypoints(startTcp) # end point of the trajectory
-        # App.activeDocument().Trajectory.Trajectory = t
-        self.trajects.append(t)
+        if hasattr(FreeCAD, 'Gui'):
+            FreeCAD.Gui.activateWorkbench("RobotWorkbench")
 
         # show all
-        FreeCAD.Gui.SendMsgToActiveView("ViewFit")
-        FreeCAD.Gui.activeDocument().ActiveView.viewFront()
-        doc.recompute()
+        if hasattr(FreeCAD, 'Gui'):
+            FreeCAD.Gui.SendMsgToActiveView("ViewFit")
+            FreeCAD.Gui.activeDocument().ActiveView.viewFront()
+            doc.recompute()
 
     # def reset(self):
     #   self.trajectories = []
@@ -272,11 +259,121 @@ class Robot(baserobot.Robot):
 
 
 
-    def add_circular_saw(self):
-        thislocation = os.path.dirname(os.path.realpath(__file__))
-        vrml_file = os.path.join(thislocation, 'tools', 'circular_saw.wrl')
-        FreeCAD.Gui.insert(vrml_file, FreeCAD.activeDocument().Name)
-        self.rob.ToolShape = FreeCAD.activeDocument().circular_saw
-        self.rob.Tool.Base = (0,-50,225)
-        self.rob.ToolBase.Rotation.Q = (0,1,0,1)
+    def tool(self, tool_name, search_path=None):
+        """Set the tool of the robot.
+
+        This function adds a tool to the robot based on a tool definition.
+        A tool definition is a json file specifying the transforms and a
+        vrml file specifying the shape.
+        tool_name: Name, also corresponds to tool_name.json and tool_name.wrl
+        search_path: The directory to look for tool. By default this function 
+                     looks for the tool in libs/robots/tools
+
+        json file format:
+        {
+            "translation": {"x":0, "y":-50, "z":225},
+            "rotation": {"w":1,"x":0,"y":0,"z":1},
+            "translation_tcp": {"x":0, "y":0, "z":0},
+            "rotation_tcp": {"w":1,"x":0,"y":1,"z":0}
+        }
+        """
+
+        if not search_path:
+            thislocation = os.path.dirname(os.path.realpath(__file__))
+            search_path = os.path.join(thislocation, 'tools')
+
+        tooldefjson = os.path.join(search_path, tool_name + '.json')
+        tooldefwrl = os.path.join(search_path, tool_name + '.wrl')
+
+        if not os.path.exists(tooldefjson):
+            print("ERROR: tool def json file not found: %s" % (tooldefjson))
+            return
+        if not os.path.exists(tooldefwrl):
+            print("ERROR: tool def vrml file not found: %s" % (tooldefwrl))
+            return
         
+        # open, attach wrl file
+        FreeCAD.Gui.insert(tooldefwrl, FreeCAD.activeDocument().Name)  #TODO: open file without using Gui
+        # self.rob.ToolShape = FreeCAD.activeDocument().circular_saw
+        self.rob.ToolShape =  FreeCAD.ActiveDocument.Objects[-1]
+        # set transforms
+        with open(tooldefjson) as data_file:
+            data = json.load(data_file)
+
+        # tool translation (in relation to flange)
+        tTool = data.get('translation')
+        if tTool:
+            self.rob.ToolBase.Base = (tTool['x'], tTool['y'], tTool['z'])
+        # tool rotation (in relation to flange)
+        rTool = data.get('rotation')
+        if rTool:
+            self.rob.ToolBase.Rotation.Q = (rTool['x'], rTool['y'], rTool['z'], rTool['w'])
+        # tcp translation (in relation to flange)
+        tTcp = data.get('translation_tcp')
+        if tTcp:
+            self.rob.Tool.Base = (tTcp['x'], tTcp['y'], tTcp['z'])
+        # tcp rotation (in relation to flange)
+        rTcp = data.get('rotation_tcp')
+        if rTcp:
+            self.rob.Tool.Rotation.Q = (rTcp['x'], rTcp['y'], rTcp['z'], rTcp['w'])
+
+
+
+    def waypoint(self, pos, rot=None, 
+                 type_=None, name=None, velocity=None, continuity=None):
+        """Add a waypoint to the robot's path.
+
+        All parameters but the position are optional. They only need to 
+        be supplied when they change.
+
+        point: position, a euclid point
+        orient: orientation, a euclid quaternion
+        type_: type of movement, defaults to LIN
+        name: name of waypoint
+        velocity: how fast to get to waypoint
+        continuity: pass-by or not
+        """
+        if rot:
+            self.rot_now = rot
+        if velocity:
+            self.velocity_now = velocity
+        if type_:
+            self.type_now = type_
+        if name:
+            self.name_now = name
+        if continuity:
+            self.continuity_now = continuity
+
+        if not self.path:
+            doc = FreeCAD.activeDocument()
+            self.path = doc.addObject("Robot::TrajectoryObject","Trajectory").Trajectory
+
+        pose = FreeCAD.Placement(FreeCAD.Vector(pos.x, pos.y, pos.z), 
+                                 FreeCAD.Rotation(self.rot_now.x, self.rot_now.y, 
+                                                  self.rot_now.z, self.rot_now.w))
+        wp = fcRobot.Waypoint(pose, self.type_now, self.name_now, 
+                              self.velocity_now, self.continuity_now)
+        self.path.insertWaypoints(wp)
+
+
+
+    def add_demo_trajectory(self):
+        self.trajects = []
+        doc = FreeCAD.activeDocument()
+        t = doc.addObject("Robot::TrajectoryObject","Trajectory").Trajectory
+        # startTcp = self.rob.Tcp # = FreeCAD.Placement(FreeCAD.Vector(500,500,500), FreeCAD.Rotation(1,0,0,1))
+        startTcp = self.rob.Tcp = FreeCAD.Placement(FreeCAD.Vector(1177.93, 0.0, 430.462), FreeCAD.Rotation(0,1,0,0))
+        t.insertWaypoints(fcRobot.Waypoint(startTcp, "LIN","Pt",4000))
+        for i in range(7):
+            # orient = euclid.Quaternion.new_rotate_axis(ang_x*TO_RAD, euclid.Vector3(1, 0, 0))
+            qx = euclid.Quaternion.new_rotate_axis(-90*TO_RAD, euclid.Vector3(1, 0, 0))
+            qy = euclid.Quaternion.new_rotate_axis(i*20*TO_RAD, euclid.Vector3(0, 1, 0))
+            orient = qx*qy
+            # FreeCAD.Rotation (-0.479426,-0,-0,0.877583)
+            fcOrient = FreeCAD.Rotation(orient.x, orient.y, orient.z, orient.w)
+            fcPos = FreeCAD.Vector(i*30+800, 500, -i*50+800)
+            # t.insertWaypoints(fcRobot.Waypoint(FreeCAD.Placement(fcPos, fcOrient),"LIN","Pt"))
+            t.insertWaypoints(fcRobot.Waypoint(FreeCAD.Placement(fcPos, fcOrient),"LIN","Pt",4000))
+        t.insertWaypoints(fcRobot.Waypoint(startTcp, "LIN","Pt",4000)) # end point of the trajectory
+        # App.activeDocument().Trajectory.Trajectory = t
+        self.trajects.append(t)
