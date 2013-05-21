@@ -584,6 +584,14 @@ class Vector3:
         n = other.normalized()
         return self.dot(n)*n
 
+    def new_interpolate(cls, v1, v2, t):
+        assert isinstance(v1, Vector3) and isinstance(v2, Vector3)
+        return cls( v1.x*(1-t) + v2.x*t,
+                    v1.y*(1-t) + v2.y*t,
+                    v1.z*(1-t) + v2.z*t )
+    new_interpolate = classmethod(new_interpolate)
+
+
 # a b c 
 # e f g 
 # i j k 

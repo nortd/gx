@@ -10,6 +10,7 @@ import os
 import sys
 import math
 import json
+import time
 from gx.libs import form
 from gx.libs.robots import baserobot
 from gx.libs.euclid import euclid
@@ -19,6 +20,7 @@ try:
     import Part
     import Draft
     import Robot as fcRobot
+    from PyQt4 import QtGui,QtCore
 except ImportError:
     print("\nError: must use FreeCAD for simrobot module\n")
 
@@ -58,10 +60,16 @@ class Robot(baserobot.Robot):
         self.rob.Axis5 = 0
         self.rob.Axis6 = 0
 
+        # tool
+        self.tool_pos = euclid.Vector3()
+        self.tool_rot = euclid.Quaternion()
+        self.tool_pos_inv = euclid.Vector3()
+        self.tool_rot_inv = euclid.Quaternion()
+
         # path
         self.path = None
         self.rot_now = (0,0,0,1)
-        self.velocity_now = 2000
+        self.velocity_now = 100
         self.type_now = "LIN"
         self.name_now = "Pt"
         self.continuity_now = False
@@ -75,6 +83,9 @@ class Robot(baserobot.Robot):
             FreeCAD.Gui.SendMsgToActiveView("ViewFit")
             FreeCAD.Gui.activeDocument().ActiveView.viewFront()
             doc.recompute()
+
+        # animations, this is robot animation chain
+        self.animations = []
 
     # def reset(self):
     #   self.trajectories = []
@@ -110,11 +121,19 @@ class Robot(baserobot.Robot):
     def pos(self):
         # convert from FreeCAD to euclid
         p = self.rob.Tcp.Base
-        return euclid.Point3(p[0], p[1], p[2])
+        return euclid.Point3(p[0], p[1], p[2])# - self.tool_pos
     @pos.setter
     def pos(self, p):
-        # convert from euclid to FreeCAD
+        # # convert from euclid to FreeCAD, compensate for tcp transform
+        # p_flange = p + self.tool_pos
         self.rob.Tcp.Base = (p[0], p[1], p[2])
+        # self.rob.Tcp.Base = (p_flange[0], p_flange[1], p_flange[2])
+        # rTcp_ = self.rob.Tcp.Rotation.Q
+        # rTcp_inv = euclid.Quaternion(-rTcp_[3], rTcp_[0], rTcp_[1], rTcp_[2])
+        # pr = (self.tool_rot_inv*rTcp_inv)*p
+        # rTcp = euclid.Quaternion(rTcp_[3], rTcp_[0], rTcp_[1], rTcp_[2])
+        # pr = (rTcp*self.tool_rot)*p
+        # self.rob.Tcp.Base = (pr[0], pr[1], pr[2])
 
 
     # orient property
@@ -124,11 +143,13 @@ class Robot(baserobot.Robot):
         # euclid lib uses (w, x, y, z)
         # FreeCad uses (x, y, z, w)
         q = self.rob.Tcp.Rotation.Q
-        return euclid.Quaternion(q[3], q[0], q[1], q[2])
+        return euclid.Quaternion(q[3], q[0], q[1], q[2])#*self.tool_rot
     @orient.setter
     def orient(self, quat):
-        # convert form euclid to FreeCAD
+        # convert form euclid to FreeCAD, compensate for tcp transform
+        # q_flange = quat#*setterelf.tool_rot_inv
         self.rob.Tcp.Rotation.Q = (quat.x, quat.y, quat.z, quat.w)
+        # self.rob.Tcp.Rotation.Q = (q_flange.x, q_flange.y, q_flange.z, q_flange.w)
 
     # Axis properties
     # axis1 ... axis6
@@ -317,6 +338,25 @@ class Robot(baserobot.Robot):
         if rTcp:
             self.rob.Tool.Rotation.Q = (rTcp['x'], rTcp['y'], rTcp['z'], rTcp['w'])
 
+        # store for later use
+        tplace = self.rob.Tool
+        p = tplace.Base
+        self.tool_pos = euclid.Vector3(p[0], p[1], p[2])
+        q = tplace.Rotation.Q
+        self.tool_rot = euclid.Quaternion(q[3], q[0], q[1], q[2])
+        FreeCAD.Console.PrintMessage(self.tool_rot.get_angle_axis())
+        #inverse
+        tplace_inv = self.rob.Tool.inverse()
+        pinv = tplace_inv.Base
+        self.tool_pos_inv = euclid.Vector3(pinv[0], pinv[1], pinv[2])
+        qinv = tplace_inv.Rotation.Q
+        # self.tool_rot_inv = euclid.Quaternion(qinv[1], qinv[2], qinv[3], qinv[0])
+        self.tool_rot_inv = self.tool_rot
+        self.tool_rot_inv.w = -self.tool_rot_inv.w
+        FreeCAD.Console.PrintMessage(self.tool_rot_inv.get_angle_axis())
+        # FreeCAD.Console.PrintMessage(self.tool_rot.inverse().get_angle_axis())
+
+
 
 
     def waypoint(self, pos, rot=None, 
@@ -377,3 +417,91 @@ class Robot(baserobot.Robot):
         t.insertWaypoints(fcRobot.Waypoint(startTcp, "LIN","Pt",4000)) # end point of the trajectory
         # App.activeDocument().Trajectory.Trajectory = t
         self.trajects.append(t)
+
+
+
+    ##################################### Simbot Animation
+
+    def add_animation(self, pos1, pos2, rot1, rot2, duration):
+        self.animations.append([pos1, pos2, rot1, rot2, duration, None])
+
+
+    def go(self):
+        # add animations from waypoints
+        last_pos = None
+        last_rot = None
+        for wp in self.path.Waypoints:
+            pos_ = wp.Pos.Base
+            pos = euclid.Point3(pos_.x, pos_.y, pos_.z)
+            rot_ = wp.Pos.Rotation.Q
+            rot = euclid.Quaternion(rot_[3], rot_[0], rot_[1], rot_[2])
+            if last_pos and last_rot:
+                vel = wp.Velocity  # mm/s
+                dist = last_pos.distance(pos)
+                if vel == 0:
+                    dur = 0.0
+                else:
+                    dur = dist/vel
+                self.add_animation(last_pos, pos, last_rot, rot, dur)
+            last_pos = pos
+            last_rot = rot
+
+        # setup timer callback
+        self.timer = QtCore.QTimer()
+        QtCore.QObject.connect(self.timer, QtCore.SIGNAL("timeout()"), self._animhandler)
+        self.timer.start(40)
+
+
+    def stop(self):
+        self.animations = []
+        self.timer.stop()
+        QtCore.QObject.disconnect(self.timer, QtCore.SIGNAL("timeout()"), self._animhandler)
+
+
+    def _animhandler(self):
+        # FreeCAD.Console.PrintMessage('<')
+        if len(self.animations) == 0:
+            # FreeCAD.Console.PrintMessage('-')
+            self.stop()
+            return
+
+        anim = self.animations[0]
+        if not anim[5]:
+            # FreeCAD.Console.PrintMessage('*')
+            # starting new motion
+            anim[5] = time.time()
+            self.pos = pos1
+            self.orient = rot1
+        else:
+            # FreeCAD.Console.PrintMessage('+')
+            dt = time.time() - anim[5]
+            duration = anim[4]
+            if duration > 0:
+                t_pct = dt/duration
+            else:
+                t_pct = 1.1  # meaning we are already there
+
+            if t_pct > 1:
+                # animation done
+                t_pct = 1.0
+                self.animations.pop(0)
+
+            # pos, linear interpolation
+            p = euclid.Point3.new_interpolate(anim[0], anim[1], t_pct)
+            self.pos = p
+            # FreeCAD.Console.PrintMessage('!')
+            # rot, SLERP interpolation
+            q = euclid.Quaternion.new_interpolate(anim[2], anim[3], t_pct)
+            self.orient = q
+
+            # TODO: optimize for speed
+            pl = FreeCAD.Placement(FreeCAD.Vector(p.x, p.y, p.z),
+                                   FreeCAD.Rotation(q.x, q.y, q.z, q.w))
+            self.rob.Tcp = pl.multiply(self.rob.Tool.inverse())
+
+            # this is how to manually compensate for the tool trans
+            # r.rob.Tcp = r.path.Waypoints[0].Pos.multiply(r.rob.Tool.inverse())
+
+        # FreeCAD.Console.PrintMessage('>')
+
+

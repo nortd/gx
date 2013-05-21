@@ -41,7 +41,7 @@ from .euclid import euclid
 __author__  = 'Stefan Hechenberger <stefan@nortd.com>'
 __all__ = ['selected', 'point', 'line', 'circle', 'interpolation_curve', 'random_curve',
             'translate', 'scale', 'rotate',
-           'P','V', 'M', 'tM', 'sM', 'rM', 'raM', 'rxM', 'ryM', 'rzM',
+           'P', 'iP', 'V', 'iV', 'M', 'tM', 'sM', 'rM', 'raM', 'rxM', 'ryM', 'rzM',
            'Q', 'aQ', 'eQ', 'mQ', 'iQ']
 
 
@@ -668,7 +668,9 @@ interpolation_curve = Form.interpolation_curve
 random_curve = Form.random_curve
 # Transformations
 P = euclid.Point3                           # x, y, z
+iP = euclid.Point3.new_interpolate          # p1, p2, t
 V = euclid.Vector3                          # x, y, z
+iV = euclid.Vector3.new_interpolate         # v1, v2, t
 M = euclid.Matrix4                          #
 tM = euclid.Matrix4.new_translate           # x, y, z
 sM = euclid.Matrix4.new_scale               # x, y, z

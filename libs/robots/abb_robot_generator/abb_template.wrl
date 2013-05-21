@@ -5,7 +5,7 @@ Group { children [
   Group {
     children [
       Transform {  # placement
-        translation 0 0 100  # box origin
+        translation 0 0 0  # box origin
         children [
           {{ base }}
         ]
