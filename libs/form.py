@@ -35,14 +35,13 @@ import random
 
 from gx import settings
 from .euclid import euclid
+from .vectormath import *
 
 
 
 __author__  = 'Stefan Hechenberger <stefan@nortd.com>'
 __all__ = ['selected', 'point', 'line', 'circle', 'interpolation_curve', 'random_curve',
-            'translate', 'scale', 'rotate',
-           'P', 'iP', 'V', 'iV', 'M', 'tM', 'sM', 'rM', 'raM', 'rxM', 'ryM', 'rzM',
-           'Q', 'aQ', 'eQ', 'mQ', 'iQ']
+            'translate', 'scale', 'rotate']
 
 
 
@@ -50,8 +49,6 @@ __all__ = ['selected', 'point', 'line', 'circle', 'interpolation_curve', 'random
 # General Implementation
 
 class BaseForm(object):
-
-    TO_RAD = math.pi/180.0
 
     def __init__(self):
         self.obj = None
@@ -107,42 +104,42 @@ class BaseForm(object):
         self.transform(mat)
     def rotate(self, x, y, z, center=(0,0,0)):
         if center == V():
-            mat = rM(y*self.TO_RAD, z*self.TO_RAD, x*self.TO_RAD)
+            mat = rM(y, z, x)
         else:
             mat = (tM(center[0], center[1], center[2]) * 
-                   rM(y*self.TO_RAD, z*self.TO_RAD, x*self.TO_RAD) * 
+                   rM(y, z, x) * 
                    tM(-center[0], -center[1], -center[2]))
         self.transform(mat)
     def rotatex(self, angle, center=(0,0,0)):
         if center == V():
-            mat = rxM(angle*self.TO_RAD)
+            mat = xM(angle)
         else:
             mat = (tM(center[0], center[1], center[2]) * 
-                   rxM(angle*self.TO_RAD) * 
+                   xM(angle) * 
                    tM(-center[0], -center[1], -center[2]))
         self.transform(mat)
     def rotatey(self, angle, center=(0,0,0)):
         if center == V():
-            mat = ryM(angle*self.TO_RAD)
+            mat = yM(angle)
         else:
             mat = (tM(center[0], center[1], center[2]) * 
-                   ryM(angle*self.TO_RAD) * 
+                   yM(angle) * 
                    tM(-center[0], -center[1], -center[2]))
         self.transform(mat)
     def rotatez(self, angle, center=(0,0,0)):
         if center == V():
-            mat = rzM(angle*self.TO_RAD)
+            mat = rzM(angle)
         else:
             mat = (tM(center[0], center[1], center[2]) * 
-                   rzM(angle*self.TO_RAD) * 
+                   zM(angle) * 
                    tM(-center[0], -center[1], -center[2]))
         self.transform(mat)
     def rotate_axis(self, angle, axis, center=(0,0,0)):
         if center == V():
-            mat = raM(angle*self.TO_RAD, axis)
+            mat = aM(angle, axis)
         else:
             mat = (tM(center[0], center[1], center[2]) * 
-                   raM(angle*self.TO_RAD, axis) * 
+                   aM(angle, axis) * 
                    tM(-center[0], -center[1], -center[2]))
         self.transform(mat)
     def rotate_quat(self, quaternion, center=(0,0,0)):
@@ -666,24 +663,6 @@ line = Form.line
 circle = Form.circle
 interpolation_curve = Form.interpolation_curve
 random_curve = Form.random_curve
-# Transformations
-P = euclid.Point3                           # x, y, z
-iP = euclid.Point3.new_interpolate          # p1, p2, t
-V = euclid.Vector3                          # x, y, z
-iV = euclid.Vector3.new_interpolate         # v1, v2, t
-M = euclid.Matrix4                          #
-tM = euclid.Matrix4.new_translate           # x, y, z
-sM = euclid.Matrix4.new_scale               # x, y, z
-rM = euclid.Matrix4.new_rotate_euler        # x, y, z
-rxM = euclid.Matrix4.new_rotatex            # angle
-ryM = euclid.Matrix4.new_rotatey            # angle
-rzM = euclid.Matrix4.new_rotatez            # angle
-raM = euclid.Matrix4.new_rotate_axis        # angle, axis
-Q = euclid.Quaternion                       #
-aQ = euclid.Quaternion.new_rotate_axis      # angle, axis
-eQ = euclid.Quaternion.new_rotate_euler     # heading, attitude, bank
-mQ = euclid.Quaternion.new_rotate_matrix    # mat
-iQ = euclid.Quaternion.new_interpolate      # q1, q2, t
 # Transformation Forwarders
 def translate(x, y, z):
     form = Form.selected()

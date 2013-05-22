@@ -61,6 +61,8 @@ class Robot(baserobot.Robot):
         self.rob.Axis6 = 0
 
         # tool
+        self.tcp_pos = euclid.Point3()          # actual TCP pos
+        self.tcp_rot = euclid.Quaternion()      # actual TCP rot
         self.tool_pos = euclid.Vector3()
         self.tool_rot = euclid.Quaternion()
         self.tool_pos_inv = euclid.Vector3()
@@ -106,13 +108,13 @@ class Robot(baserobot.Robot):
     def rot(self, ang_x, ang_y, ang_z):
         """Rotate (absolute) robot orientation to axis-aligned angles.
 
-        ang_x: angle around x-axis in degrees
-        ang_y: angle around y-axis in degrees
-        ang_z: angle around z-axis in degrees
+        ang_x: angle around x-axis in radians
+        ang_y: angle around y-axis in radians
+        ang_z: angle around z-axis in radians
         """
-        qx = euclid.Quaternion.new_rotate_axis(ang_x*TO_RAD, euclid.Vector3(1, 0, 0))
-        qy = euclid.Quaternion.new_rotate_axis(ang_y*TO_RAD, euclid.Vector3(0, 1, 0))
-        qz = euclid.Quaternion.new_rotate_axis(ang_z*TO_RAD, euclid.Vector3(0, 0, 1))
+        qx = euclid.Quaternion.new_rotate_axis(ang_x, euclid.Vector3(1, 0, 0))
+        qy = euclid.Quaternion.new_rotate_axis(ang_y, euclid.Vector3(0, 1, 0))
+        qz = euclid.Quaternion.new_rotate_axis(ang_z, euclid.Vector3(0, 0, 1))
         self.orient = qx * qy * qz
 
 
@@ -120,64 +122,37 @@ class Robot(baserobot.Robot):
     # orient property
     @property
     def orient(self):
-        # convert from FreeCAD to euclid
-        # euclid lib uses (w, x, y, z)
-        # FreeCad uses (x, y, z, w)
-        q = self.rob.Tcp.Rotation.Q
-        return euclid.Quaternion(q[3], q[0], q[1], q[2])#*self.tool_rot
+        return self.tcp_rot
+        # _q = self.rob.Tcp.Rotation.Q
+        # q = euclid.Quaternion(_q[3], _q[0], _q[1], _q[2]) * self.tool_rot
+        # return q
     @orient.setter
     def orient(self, q):
-        """NOTE: for proper tool compensation make sure to set
-        orientation before position. Otherwise the previous
-        orientation will be used."""
-        tinv = self.rob.Tool.inverse()
-        tinv_pos = euclid.Point3(tinv.Base.x, tinv.Base.y, tinv.Base.z)
-        tinv_rot_ = tinv.Rotation.Q
-        tinv_rot = euclid.Quaternion(tinv_rot_[3], tinv_rot_[0], tinv_rot_[1], tinv_rot_[2])
-        q_m = q * tinv_rot
+        self.tcp_rot = q
+        q_m = q * self.tool_rot_inv
         self.rob.Tcp.Rotation = FreeCAD.Rotation(q_m.x, q_m.y, q_m.z, q_m.w)
-
-        # convert form euclid to FreeCAD, compensate for tcp transform
-        # q = quat*self.tool_rot_inv
-        # self.rob.Tcp.Rotation.Q = (quat.x, quat.y, quat.z, quat.w)
-        # self.rob.Tcp.Rotation.Q = (q.x, q.y, q.z, q.w)
-
+        # correct pos
+        self.pos = self.tcp_pos
 
 
     # pos property
     @property
     def pos(self):
-        # convert from FreeCAD to euclid
-        p = self.rob.Tcp.Base
-        return euclid.Point3(p[0], p[1], p[2])# - self.tool_pos
+        return self.tcp_pos
+        # _p = self.rob.Tcp.Base
+        # p = euclid.Point3(_p[0], _p[1], _p[2])
+        # _q = self.rob.Tcp.Rotation.Q
+        # q = euclid.Quaternion(_q[3], _q[0], _q[1], _q[2])
+        # p += q * self.tool_pos
+        # return p
     @pos.setter
     def pos(self, p):
-        tinv = self.rob.Tool.inverse()
-        tinv_pos = euclid.Point3(tinv.Base.x, tinv.Base.y, tinv.Base.z)
-        tinv_rot_ = tinv.Rotation.Q
-        tinv_rot = euclid.Quaternion(tinv_rot_[3], tinv_rot_[0], tinv_rot_[1], tinv_rot_[2])
+        self.tcp_pos = p
         _q = self.rob.Tcp.Rotation.Q
         q = euclid.Quaternion(_q[3], _q[0], _q[1], _q[2])
-        p_m = p + (q*tinv_pos)
+        p_m = p + (q * self.tool_pos_inv)
         self.rob.Tcp.Base = (p_m.x, p_m.y, p_m.z)
 
-        # _p = self.rob.Tcp.Base
-        # _q = self.rob.Tcp.Rotation.Q
-        # p = euclid.Point3(_p.x, _p.y, _p.z)
-        # q = euclid.Quaternion(_q[3], _q[0], _q[1], _q[2])
-        # p = p + (q * self.tool_pos_inv)  # apply rot before adding
-        # self.rob.Tcp.Base = (p.x, p.y, p.z)
-
-        # # convert from euclid to FreeCAD, compensate for tcp transform
-        # p_flange = p + self.tool_pos
-        # self.rob.Tcp.Base = (p[0], p[1], p[2])
-        # self.rob.Tcp.Base = (p_flange[0], p_flange[1], p_flange[2])
-        # rTcp_ = self.rob.Tcp.Rotation.Q
-        # rTcp_inv = euclid.Quaternion(-rTcp_[3], rTcp_[0], rTcp_[1], rTcp_[2])
-        # pr = (self.tool_rot_inv*rTcp_inv)*p
-        # rTcp = euclid.Quaternion(rTcp_[3], rTcp_[0], rTcp_[1], rTcp_[2])
-        # pr = (rTcp*self.tool_rot)*p
-        # self.rob.Tcp.Base = (pr[0], pr[1], pr[2])
 
 
     # Axis properties

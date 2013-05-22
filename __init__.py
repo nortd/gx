@@ -16,6 +16,7 @@ def _force_reload_of_gx():
 if settings.DEBUG:
     _force_reload_of_gx()
 
+from gx.libs.vectormath import *
 from gx.libs.app import *
 from gx.libs.form import *
 from gx.libs.robots import *
@@ -27,7 +28,7 @@ __version__ = '2013.02'
 __license__ = 'GPL3'
 __docformat__ = 'restructuredtext en'
 
-
+pi = math.pi
 TO_RAD = math.pi/180.0
 TO_DEG = 180.0/math.pi
 
