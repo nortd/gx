@@ -116,25 +116,6 @@ class Robot(baserobot.Robot):
         self.orient = qx * qy * qz
 
 
-    # pos property
-    @property
-    def pos(self):
-        # convert from FreeCAD to euclid
-        p = self.rob.Tcp.Base
-        return euclid.Point3(p[0], p[1], p[2])# - self.tool_pos
-    @pos.setter
-    def pos(self, p):
-        # # convert from euclid to FreeCAD, compensate for tcp transform
-        # p_flange = p + self.tool_pos
-        self.rob.Tcp.Base = (p[0], p[1], p[2])
-        # self.rob.Tcp.Base = (p_flange[0], p_flange[1], p_flange[2])
-        # rTcp_ = self.rob.Tcp.Rotation.Q
-        # rTcp_inv = euclid.Quaternion(-rTcp_[3], rTcp_[0], rTcp_[1], rTcp_[2])
-        # pr = (self.tool_rot_inv*rTcp_inv)*p
-        # rTcp = euclid.Quaternion(rTcp_[3], rTcp_[0], rTcp_[1], rTcp_[2])
-        # pr = (rTcp*self.tool_rot)*p
-        # self.rob.Tcp.Base = (pr[0], pr[1], pr[2])
-
 
     # orient property
     @property
@@ -145,11 +126,59 @@ class Robot(baserobot.Robot):
         q = self.rob.Tcp.Rotation.Q
         return euclid.Quaternion(q[3], q[0], q[1], q[2])#*self.tool_rot
     @orient.setter
-    def orient(self, quat):
+    def orient(self, q):
+        """NOTE: for proper tool compensation make sure to set
+        orientation before position. Otherwise the previous
+        orientation will be used."""
+        tinv = self.rob.Tool.inverse()
+        tinv_pos = euclid.Point3(tinv.Base.x, tinv.Base.y, tinv.Base.z)
+        tinv_rot_ = tinv.Rotation.Q
+        tinv_rot = euclid.Quaternion(tinv_rot_[3], tinv_rot_[0], tinv_rot_[1], tinv_rot_[2])
+        q_m = q * tinv_rot
+        self.rob.Tcp.Rotation = FreeCAD.Rotation(q_m.x, q_m.y, q_m.z, q_m.w)
+
         # convert form euclid to FreeCAD, compensate for tcp transform
-        # q_flange = quat#*setterelf.tool_rot_inv
-        self.rob.Tcp.Rotation.Q = (quat.x, quat.y, quat.z, quat.w)
-        # self.rob.Tcp.Rotation.Q = (q_flange.x, q_flange.y, q_flange.z, q_flange.w)
+        # q = quat*self.tool_rot_inv
+        # self.rob.Tcp.Rotation.Q = (quat.x, quat.y, quat.z, quat.w)
+        # self.rob.Tcp.Rotation.Q = (q.x, q.y, q.z, q.w)
+
+
+
+    # pos property
+    @property
+    def pos(self):
+        # convert from FreeCAD to euclid
+        p = self.rob.Tcp.Base
+        return euclid.Point3(p[0], p[1], p[2])# - self.tool_pos
+    @pos.setter
+    def pos(self, p):
+        tinv = self.rob.Tool.inverse()
+        tinv_pos = euclid.Point3(tinv.Base.x, tinv.Base.y, tinv.Base.z)
+        tinv_rot_ = tinv.Rotation.Q
+        tinv_rot = euclid.Quaternion(tinv_rot_[3], tinv_rot_[0], tinv_rot_[1], tinv_rot_[2])
+        _q = self.rob.Tcp.Rotation.Q
+        q = euclid.Quaternion(_q[3], _q[0], _q[1], _q[2])
+        p_m = p + (q*tinv_pos)
+        self.rob.Tcp.Base = (p_m.x, p_m.y, p_m.z)
+
+        # _p = self.rob.Tcp.Base
+        # _q = self.rob.Tcp.Rotation.Q
+        # p = euclid.Point3(_p.x, _p.y, _p.z)
+        # q = euclid.Quaternion(_q[3], _q[0], _q[1], _q[2])
+        # p = p + (q * self.tool_pos_inv)  # apply rot before adding
+        # self.rob.Tcp.Base = (p.x, p.y, p.z)
+
+        # # convert from euclid to FreeCAD, compensate for tcp transform
+        # p_flange = p + self.tool_pos
+        # self.rob.Tcp.Base = (p[0], p[1], p[2])
+        # self.rob.Tcp.Base = (p_flange[0], p_flange[1], p_flange[2])
+        # rTcp_ = self.rob.Tcp.Rotation.Q
+        # rTcp_inv = euclid.Quaternion(-rTcp_[3], rTcp_[0], rTcp_[1], rTcp_[2])
+        # pr = (self.tool_rot_inv*rTcp_inv)*p
+        # rTcp = euclid.Quaternion(rTcp_[3], rTcp_[0], rTcp_[1], rTcp_[2])
+        # pr = (rTcp*self.tool_rot)*p
+        # self.rob.Tcp.Base = (pr[0], pr[1], pr[2])
+
 
     # Axis properties
     # axis1 ... axis6
@@ -341,19 +370,17 @@ class Robot(baserobot.Robot):
         # store for later use
         tplace = self.rob.Tool
         p = tplace.Base
-        self.tool_pos = euclid.Vector3(p[0], p[1], p[2])
+        self.tool_pos = euclid.Point3(p[0], p[1], p[2])
         q = tplace.Rotation.Q
         self.tool_rot = euclid.Quaternion(q[3], q[0], q[1], q[2])
-        FreeCAD.Console.PrintMessage(self.tool_rot.get_angle_axis())
+        # FreeCAD.Console.PrintMessage(self.tool_rot.get_angle_axis())
         #inverse
         tplace_inv = self.rob.Tool.inverse()
         pinv = tplace_inv.Base
-        self.tool_pos_inv = euclid.Vector3(pinv[0], pinv[1], pinv[2])
+        self.tool_pos_inv = euclid.Point3(pinv[0], pinv[1], pinv[2])
         qinv = tplace_inv.Rotation.Q
-        # self.tool_rot_inv = euclid.Quaternion(qinv[1], qinv[2], qinv[3], qinv[0])
-        self.tool_rot_inv = self.tool_rot
-        self.tool_rot_inv.w = -self.tool_rot_inv.w
-        FreeCAD.Console.PrintMessage(self.tool_rot_inv.get_angle_axis())
+        self.tool_rot_inv = euclid.Quaternion(qinv[3], qinv[0], qinv[1], qinv[2])
+        # FreeCAD.Console.PrintMessage(self.tool_rot_inv.get_angle_axis())
         # FreeCAD.Console.PrintMessage(self.tool_rot.inverse().get_angle_axis())
 
 
@@ -459,6 +486,12 @@ class Robot(baserobot.Robot):
 
 
     def _animhandler(self):
+        """Animation callback, handler of qt timer.
+
+        NOTE: Any bugs in this context are completely silent
+              in FreeCAD. To debug, print a message at the end of this
+              handler and make sure it will be reached.
+        """
         # FreeCAD.Console.PrintMessage('<')
         if len(self.animations) == 0:
             # FreeCAD.Console.PrintMessage('-')
@@ -486,22 +519,35 @@ class Robot(baserobot.Robot):
                 t_pct = 1.0
                 self.animations.pop(0)
 
-            # pos, linear interpolation
-            p = euclid.Point3.new_interpolate(anim[0], anim[1], t_pct)
-            self.pos = p
-            # FreeCAD.Console.PrintMessage('!')
             # rot, SLERP interpolation
             q = euclid.Quaternion.new_interpolate(anim[2], anim[3], t_pct)
             self.orient = q
+            # pos, linear interpolation
+            p = euclid.Point3.new_interpolate(anim[0], anim[1], t_pct)
+            self.pos = p
+
+
+            # tinv = self.rob.Tool.inverse()
+            # tinv_pos = euclid.Point3(tinv.Base.x, tinv.Base.y, tinv.Base.z)
+            # tinv_rot_ = tinv.Rotation.Q
+            # tinv_rot = euclid.Quaternion(tinv_rot_[3], tinv_rot_[0], tinv_rot_[1], tinv_rot_[2])
+
+            # p_m = p + (q*tinv_pos)
+            # q_m = q * tinv_rot
+            # self.rob.Tcp = FreeCAD.Placement(FreeCAD.Vector(p_m.x, p_m.y, p_m.z),
+            #                        FreeCAD.Rotation(q_m.x, q_m.y, q_m.z, q_m.w))
+
 
             # TODO: optimize for speed
-            pl = FreeCAD.Placement(FreeCAD.Vector(p.x, p.y, p.z),
-                                   FreeCAD.Rotation(q.x, q.y, q.z, q.w))
-            self.rob.Tcp = pl.multiply(self.rob.Tool.inverse())
+            # pl = FreeCAD.Placement(FreeCAD.Vector(p.x, p.y, p.z),
+            #                        FreeCAD.Rotation(q.x, q.y, q.z, q.w))
+            # new_tcp = pl.multiply(self.rob.Tool.inverse())
+            # self.rob.Tcp = new_tcp
+
+            # FreeCAD.Console.PrintMessage("fc: " + str(new_tcp.Base) + " " + str(new_tcp.Rotation.Q))
+            # FreeCAD.Console.PrintMessage("man: " + str(p_m) + " " + str(q_m))
 
             # this is how to manually compensate for the tool trans
             # r.rob.Tcp = r.path.Waypoints[0].Pos.multiply(r.rob.Tool.inverse())
 
         # FreeCAD.Console.PrintMessage('>')
-
-
