@@ -31,4 +31,3 @@ open-abb-driver setup
 - put controller in automatic mode (usually key-switch) and turn on motors
 - run RAPID program
 - connect/control with the robot.py module
-

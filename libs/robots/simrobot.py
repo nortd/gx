@@ -14,6 +14,8 @@ import time
 from gx.libs import form
 from gx.libs.robots import baserobot
 from gx.libs.euclid import euclid
+from gx.libs.vectormath import *
+from gx.libs.trajectory import Target, Trajectory
 
 try:
     import FreeCAD
@@ -50,16 +52,6 @@ class Robot(baserobot.Robot):
         self.rob.RobotVrmlFile = defs['wrl']
         self.rob.RobotKinematicFile = defs['csv']
 
-        # Kuka-specific
-        # self.rob.Axis2 = -90
-        # self.rob.Axis3 = 90
-        self.rob.Axis1 = 0
-        self.rob.Axis2 = 0
-        self.rob.Axis3 = 0
-        self.rob.Axis4 = 0
-        self.rob.Axis5 = 0
-        self.rob.Axis6 = 0
-
         # tool
         self.tcp_pos = euclid.Point3()          # actual TCP pos
         self.tcp_rot = euclid.Quaternion()      # actual TCP rot
@@ -68,17 +60,18 @@ class Robot(baserobot.Robot):
         self.tool_pos_inv = euclid.Vector3()
         self.tool_rot_inv = euclid.Quaternion()
 
-        # path
-        self.path = None
-        self.rot_now = (0,0,0,1)
-        self.velocity_now = 100
-        self.type_now = "LIN"
-        self.name_now = "Pt"
-        self.continuity_now = False
+        # work frame
+        self._workframe = Pose(V(), R())
 
-        # change to Robot Workbench
-        if hasattr(FreeCAD, 'Gui'):
-            FreeCAD.Gui.activateWorkbench("RobotWorkbench")
+        # trajectory
+        self.trajectory = None
+        self.rot_now = R()
+        self.velocity_now = 100
+
+        # change Workbench
+        # if hasattr(FreeCAD, 'Gui'):
+        #     # FreeCAD.Gui.activateWorkbench("RobotWorkbench")
+        #     FreeCAD.Gui.activateWorkbench("NoneWorkbench")
 
         # show all
         if hasattr(FreeCAD, 'Gui'):
@@ -89,45 +82,19 @@ class Robot(baserobot.Robot):
         # animations, this is robot animation chain
         self.animations = []
 
-    # def reset(self):
-    #   self.trajectories = []
-
-    def pose(self, pos, orient, robot=1):
-        pass
-
-    # def move_linear(self, pos, orient, robot=1):
-    #   """Linear move to position and orientation
-    #   """
-    #   self.oadrobot.setCartesian([pos, orient])
+        # init pose
+        self.axes = (0,0,0,0,0,0)
+        _p = self.rob.Tcp.Base
+        self.pos = P(_p.x, _p.y, _p.z)
+        self.toolrotate_to(0, math.pi/2.0, 0)
 
 
-    def move(self, x, y, z, robot=1):
-      self.rob.Tcp.move(App.Vector(x, y, z))
-
-
-    def rot(self, ang_x, ang_y, ang_z):
-        """Rotate (absolute) robot orientation to axis-aligned angles.
-
-        ang_x: angle around x-axis in radians
-        ang_y: angle around y-axis in radians
-        ang_z: angle around z-axis in radians
-        """
-        qx = euclid.Quaternion.new_rotate_axis(ang_x, euclid.Vector3(1, 0, 0))
-        qy = euclid.Quaternion.new_rotate_axis(ang_y, euclid.Vector3(0, 1, 0))
-        qz = euclid.Quaternion.new_rotate_axis(ang_z, euclid.Vector3(0, 0, 1))
-        self.orient = qx * qy * qz
-
-
-
-    # orient property
+    # rot properties
     @property
-    def orient(self):
-        return self.tcp_rot
-        # _q = self.rob.Tcp.Rotation.Q
-        # q = euclid.Quaternion(_q[3], _q[0], _q[1], _q[2]) * self.tool_rot
-        # return q
-    @orient.setter
-    def orient(self, q):
+    def rot(self):
+        return self.tcp_rot  # TODO: invalid after setting axes
+    @rot.setter
+    def rot(self, q):
         self.tcp_rot = q
         q_m = q * self.tool_rot_inv
         self.rob.Tcp.Rotation = FreeCAD.Rotation(q_m.x, q_m.y, q_m.z, q_m.w)
@@ -138,62 +105,22 @@ class Robot(baserobot.Robot):
     # pos property
     @property
     def pos(self):
-        return self.tcp_pos
-        # _p = self.rob.Tcp.Base
-        # p = euclid.Point3(_p[0], _p[1], _p[2])
-        # _q = self.rob.Tcp.Rotation.Q
-        # q = euclid.Quaternion(_q[3], _q[0], _q[1], _q[2])
-        # p += q * self.tool_pos
-        # return p
+        return self.tcp_pos  # TODO: invalid after setting axes
     @pos.setter
     def pos(self, p):
-        self.tcp_pos = p
-        _q = self.rob.Tcp.Rotation.Q
-        q = euclid.Quaternion(_q[3], _q[0], _q[1], _q[2])
-        p_m = p + (q * self.tool_pos_inv)
-        self.rob.Tcp.Base = (p_m.x, p_m.y, p_m.z)
+        if isinstance(p, P) or isinstance(p, V):
+            if isinstance(p, V):  #relative
+                p += self.tcp_pos
+            self.tcp_pos = p
+            _q = self.rob.Tcp.Rotation.Q
+            q = euclid.Quaternion(_q[3], _q[0], _q[1], _q[2])
+            p_m = p + (q * self.tool_pos_inv)
+            self.rob.Tcp.Base = (p_m.x, p_m.y, p_m.z)
+        else:
+            print "ERROR: invalid type"
 
 
-
-    # Axis properties
-    # axis1 ... axis6
-    @property
-    def axis1(self):
-        return self.rob.Axis1
-    @axis1.setter
-    def axis1(self, value):
-        self.rob.Axis1 = value
-    @property
-    def axis2(self):
-        return self.rob.Axis2
-    @axis2.setter
-    def axis2(self, value):
-        self.rob.Axis2 = value
-    @property
-    def axis3(self):
-        return self.rob.Axis3
-    @axis3.setter
-    def axis3(self, value):
-        self.rob.Axis3 = value
-    @property
-    def axis4(self):
-        return self.rob.Axis4
-    @axis4.setter
-    def axis4(self, value):
-        self.rob.Axis4 = value
-    @property
-    def axis5(self):
-        return self.rob.Axis5
-    @axis5.setter
-    def axis5(self, value):
-        self.rob.Axis5 = value
-    @property
-    def axis6(self):
-        return self.rob.Axis6
-    @axis6.setter
-    def axis6(self, value):
-        self.rob.Axis6 = value
-
+    # axes property
     @property
     def axes(self):
         return (self.rob.Axis1, self.rob.Axis2, self.rob.Axis3, 
@@ -208,6 +135,91 @@ class Robot(baserobot.Robot):
         self.rob.Axis4 = axes[3]
         self.rob.Axis5 = axes[4]
         self.rob.Axis6 = axes[5]
+        # TODO: update self.tcp_pos, self.tcp_rot
+
+
+    # tool rotation shortcuts
+    def rotxyz(self, ang_x, ang_y, ang_z):
+        """Set tool rotation by axis-aligned angles (relative).
+
+        ang_x: angle around x-axis in radians
+        ang_y: angle around y-axis in radians
+        ang_z: angle around z-axis in radians
+        """
+        qx = aR(ang_x, euclid.Vector3(1, 0, 0))
+        qy = aR(ang_y, euclid.Vector3(0, 1, 0))
+        qz = aR(ang_z, euclid.Vector3(0, 0, 1))
+        self.rot = qx * qy * qz * self.rot
+
+
+    def rotxyz_to(self, ang_x, ang_y, ang_z):
+        """Set tool rotation by axis-aligned angles (absolute).
+
+        ang_x: angle around x-axis in radians
+        ang_y: angle around y-axis in radians
+        ang_z: angle around z-axis in radians
+        """
+        qx = euclid.Quaternion.new_rotate_axis(ang_x, euclid.Vector3(1, 0, 0))
+        qy = euclid.Quaternion.new_rotate_axis(ang_y, euclid.Vector3(0, 1, 0))
+        qz = euclid.Quaternion.new_rotate_axis(ang_z, euclid.Vector3(0, 0, 1))
+        self.rot = qx * qy * qz
+
+
+    def pose(self, pose):
+        """Pose the tool by setting position and rotation."""
+        self.rot = pose.rot
+        self.pos = pose.pos
+
+        
+    def target(self, pos=None, rot=None, axes=None, inter=None, linspeed=None, 
+               rotspeed=None, dur=None, zone=None):
+        """Add a target to the robot trajectory.
+
+        All parameters but the position are optional. They only need to 
+        be supplied when they change.
+
+        point: position, a euclid point
+        rot: orientation, a euclid quaternion
+        type_: type of movement, defaults to LIN
+        name: name of waypoint
+        velocity: how fast to get to waypoint
+        continuity: pass-by or not
+        """
+        if rot:
+            self.rot_now = rot
+        if velocity:
+            self.velocity_now = velocity
+
+        t = Target(pos, rot, axes, inter, linspeed, 
+                   rotspeed, dur, zone, 'tool0', 'wobj0')
+        self.trajectory.addtarget(t)
+
+
+
+
+    def addaxispose(self, axes):
+        """Add a pose to the robot target based on joint positions."""
+        print "axialpose not implemented yet"
+
+
+    def generate_freecad_trajectory(self):
+        """Generate a FreeCAD trajectory.
+
+        This allows for using the build-in robot simulation as opposed
+        to the gx simulation. Native simulation may be useful for
+        debugging. To use this, select robot and this trajectory from
+        FreeCAD's tree view and press the simulate button.
+        """
+        doc = FreeCAD.activeDocument()
+        traj = doc.addObject("Robot::TrajectoryObject","Trajectory").Trajectory
+        for target in self.trajectory:
+            pos = target.pos
+            rot = target.rot
+            velocity = target.linspeed
+            _pose = FreeCAD.Placement(FreeCAD.Vector(pos.x, pos.y, pos.z), 
+                                      FreeCAD.Rotation(rot.x, rot.y, rot.z, rot.w))
+            wp = fcRobot.Waypoint(_pose, "LIN", "Pt", velocity, False)
+            traj.insertWaypoints(wp)
 
 
 
@@ -358,44 +370,26 @@ class Robot(baserobot.Robot):
         # FreeCAD.Console.PrintMessage(self.tool_rot_inv.get_angle_axis())
         # FreeCAD.Console.PrintMessage(self.tool_rot.inverse().get_angle_axis())
 
+        # update pos so tool end is new tcp
+        self.pos = self.pos
 
 
+    def frame(self, origin, xpoint, ypoint):
+        """Defines a work object frame (coordinate system).
 
-    def waypoint(self, pos, rot=None, 
-                 type_=None, name=None, velocity=None, continuity=None):
-        """Add a waypoint to the robot's path.
+        TODO: workframe is not used yet!
 
-        All parameters but the position are optional. They only need to 
-        be supplied when they change.
-
-        point: position, a euclid point
-        orient: orientation, a euclid quaternion
-        type_: type of movement, defaults to LIN
-        name: name of waypoint
-        velocity: how fast to get to waypoint
-        continuity: pass-by or not
+        Creates a work object pose in origin with the x-axis pointing
+        from origin to xpoint. Then ypoint is used to determin the 
+        y-direction (only). The z-direction follows from the right-hand-rule.
         """
-        if rot:
-            self.rot_now = rot
-        if velocity:
-            self.velocity_now = velocity
-        if type_:
-            self.type_now = type_
-        if name:
-            self.name_now = name
-        if continuity:
-            self.continuity_now = continuity
-
-        if not self.path:
-            doc = FreeCAD.activeDocument()
-            self.path = doc.addObject("Robot::TrajectoryObject","Trajectory").Trajectory
-
-        pose = FreeCAD.Placement(FreeCAD.Vector(pos.x, pos.y, pos.z), 
-                                 FreeCAD.Rotation(self.rot_now.x, self.rot_now.y, 
-                                                  self.rot_now.z, self.rot_now.w))
-        wp = fcRobot.Waypoint(pose, self.type_now, self.name_now, 
-                              self.velocity_now, self.continuity_now)
-        self.path.insertWaypoints(wp)
+        x = (origin - xpoint).normalized()
+        z = ypoint.cross(z).normalized()
+        y = x.cross(z)
+        m = euclis.Matrix4.new_rotate_triple_axis(x, y, z)
+        # m.d, m.h, m.l = origin.x, origin.y, origin.z
+        self._workframe.pos = origin
+        self._workframe.rot = m.get_quaternion())
 
 
 
@@ -407,12 +401,12 @@ class Robot(baserobot.Robot):
         startTcp = self.rob.Tcp = FreeCAD.Placement(FreeCAD.Vector(1177.93, 0.0, 430.462), FreeCAD.Rotation(0,1,0,0))
         t.insertWaypoints(fcRobot.Waypoint(startTcp, "LIN","Pt",4000))
         for i in range(7):
-            # orient = euclid.Quaternion.new_rotate_axis(ang_x*TO_RAD, euclid.Vector3(1, 0, 0))
+            # rot = euclid.Quaternion.new_rotate_axis(ang_x*TO_RAD, euclid.Vector3(1, 0, 0))
             qx = euclid.Quaternion.new_rotate_axis(-90*TO_RAD, euclid.Vector3(1, 0, 0))
             qy = euclid.Quaternion.new_rotate_axis(i*20*TO_RAD, euclid.Vector3(0, 1, 0))
-            orient = qx*qy
+            rot = qx*qy
             # FreeCAD.Rotation (-0.479426,-0,-0,0.877583)
-            fcOrient = FreeCAD.Rotation(orient.x, orient.y, orient.z, orient.w)
+            fcOrient = FreeCAD.Rotation(rot.x, rot.y, rot.z, rot.w)
             fcPos = FreeCAD.Vector(i*30+800, 500, -i*50+800)
             # t.insertWaypoints(fcRobot.Waypoint(FreeCAD.Placement(fcPos, fcOrient),"LIN","Pt"))
             t.insertWaypoints(fcRobot.Waypoint(FreeCAD.Placement(fcPos, fcOrient),"LIN","Pt",4000))
@@ -478,8 +472,8 @@ class Robot(baserobot.Robot):
             # FreeCAD.Console.PrintMessage('*')
             # starting new motion
             anim[5] = time.time()
-            self.pos = pos1
-            self.orient = rot1
+            self.pos = anim[0]
+            self.rot = anim[2]
         else:
             # FreeCAD.Console.PrintMessage('+')
             dt = time.time() - anim[5]
@@ -496,31 +490,10 @@ class Robot(baserobot.Robot):
 
             # rot, SLERP interpolation
             q = euclid.Quaternion.new_interpolate(anim[2], anim[3], t_pct)
-            self.orient = q
+            self.rot = q
             # pos, linear interpolation
             p = euclid.Point3.new_interpolate(anim[0], anim[1], t_pct)
             self.pos = p
-
-
-            # tinv = self.rob.Tool.inverse()
-            # tinv_pos = euclid.Point3(tinv.Base.x, tinv.Base.y, tinv.Base.z)
-            # tinv_rot_ = tinv.Rotation.Q
-            # tinv_rot = euclid.Quaternion(tinv_rot_[3], tinv_rot_[0], tinv_rot_[1], tinv_rot_[2])
-
-            # p_m = p + (q*tinv_pos)
-            # q_m = q * tinv_rot
-            # self.rob.Tcp = FreeCAD.Placement(FreeCAD.Vector(p_m.x, p_m.y, p_m.z),
-            #                        FreeCAD.Rotation(q_m.x, q_m.y, q_m.z, q_m.w))
-
-
-            # TODO: optimize for speed
-            # pl = FreeCAD.Placement(FreeCAD.Vector(p.x, p.y, p.z),
-            #                        FreeCAD.Rotation(q.x, q.y, q.z, q.w))
-            # new_tcp = pl.multiply(self.rob.Tool.inverse())
-            # self.rob.Tcp = new_tcp
-
-            # FreeCAD.Console.PrintMessage("fc: " + str(new_tcp.Base) + " " + str(new_tcp.Rotation.Q))
-            # FreeCAD.Console.PrintMessage("man: " + str(p_m) + " " + str(q_m))
 
             # this is how to manually compensate for the tool trans
             # r.rob.Tcp = r.path.Waypoints[0].Pos.multiply(r.rob.Tool.inverse())

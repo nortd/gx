@@ -89,7 +89,7 @@ class BaseForm(object):
     # Transformations
     # def transform_shape(self, mat): pass
     def transform(self, mat): pass
-    def translate(self, x, y, z):
+    def move(self, x, y, z):
         self.transform(tM(x, y, z))
     def scale(self, x, y=None, z=None, center=(0,0,0)):
         if not y or not z:
@@ -102,7 +102,15 @@ class BaseForm(object):
                    sM(x,y,z) * 
                    tM(-center[0], -center[1], -center[2]))
         self.transform(mat)
-    def rotate(self, x, y, z, center=(0,0,0)):
+    def rotate(self, quaternion, center=(0,0,0)):
+        if center == V():
+            mat = quaternion.get_matrix()
+        else:
+            mat = (tM(center[0], center[1], center[2]) * 
+                   quaternion.get_matrix() * 
+                   tM(-center[0], -center[1], -center[2]))
+        self.transform(mat)
+    def rotatexyz(self, x, y, z, center=(0,0,0)):
         if center == V():
             mat = rM(y, z, x)
         else:
@@ -128,13 +136,13 @@ class BaseForm(object):
         self.transform(mat)
     def rotatez(self, angle, center=(0,0,0)):
         if center == V():
-            mat = rzM(angle)
+            mat = zM(angle)
         else:
             mat = (tM(center[0], center[1], center[2]) * 
                    zM(angle) * 
                    tM(-center[0], -center[1], -center[2]))
         self.transform(mat)
-    def rotate_axis(self, angle, axis, center=(0,0,0)):
+    def rotatea(self, angle, axis, center=(0,0,0)):
         if center == V():
             mat = aM(angle, axis)
         else:
@@ -142,15 +150,6 @@ class BaseForm(object):
                    aM(angle, axis) * 
                    tM(-center[0], -center[1], -center[2]))
         self.transform(mat)
-    def rotate_quat(self, quaternion, center=(0,0,0)):
-        if center == V():
-            mat = quaternion.get_matrix()
-        else:
-            mat = (tM(center[0], center[1], center[2]) * 
-                   quaternion.get_matrix() * 
-                   tM(-center[0], -center[1], -center[2]))
-        self.transform(mat)
-
 
 
 
