@@ -86,7 +86,84 @@ class Path(object):
             raise Exception("invalid axes length")
 
 
-    def tool(self, pos=V(), rot=R(), mass=0.001, massCenterPos=V()):
+    def tool(self, name, search_path=None):
+        """Loads a tool definition from file.
+
+        This function adds a tool to the robot based on a tool definition.
+        A tool definition is a json file specifying tcp pose, mass, center of
+        mass pos, model pose. A model file (.wrl) of the same name is used too.
+         and a
+        vrml file specifying the shape.
+        name: Corresponds to tool_name.json and tool_name.wrl.
+        search_path: The directory to look for tool. By default this function 
+                     looks for the tool in libs/robots/tools
+
+        json file format:
+        {
+            "pos": {"x":0, "y":-50, "z":225},
+            "rot": {"w":1,"x":0,"y":0,"z":0},
+            "modelPos": {"x":0, "y":0, "z":0},
+            "modelRot": {"w":1,"x":0,"y":1,"z":0},
+            "mass": 5.0,
+            "massCenterPos": {"x":0, "y":0, "z":0},
+        }
+        """
+        if not search_path:
+            thislocation = os.path.dirname(os.path.realpath(__file__))
+            search_path = os.path.join(thislocation, 'tools')
+        tooldefjson = os.path.join(search_path, tool_name + '.json')
+        tooldefwrl = os.path.join(search_path, tool_name + '.wrl')
+        if not os.path.exists(tooldefjson):
+            print("ERROR: tool def json file not found: %s" % (tooldefjson))
+            return
+        if not os.path.exists(tooldefwrl):
+            modelFile = None
+        else:
+            modelFile = tooldefwrl
+        
+        # set transforms
+        with open(tooldefjson) as data_file:
+            data = json.load(data_file)
+
+        pos = V()
+        rot = R()
+        mass = 0.001
+        massCenterPos = V()
+        modelPos = V()
+        modelRot = R()
+
+        # tcp translation (in relation to flange)
+        tTcp = data.get('pos')
+        if tTcp:
+            pos = V(tTcp['x'], tTcp['y'], tTcp['z'])
+        # tcp rotation (in relation to flange)
+        rTcp = data.get('rot')
+        if rTcp:
+            rot = R(rTcp['x'], rTcp['y'], rTcp['z'], rTcp['w'])
+
+        # mass (kg)
+        masskg = data.get('mass')
+        if masskg:
+            mass = masskg
+        # mass translation (in relation to flange)
+        tMass = data.get('massCenterPos')
+        if tMass:
+            modelPos = V(tMass['x'], tMass['y'], tMass['z'])
+        
+        # tool translation (in relation to flange)
+        tTool = data.get('modelPos')
+        if tTool:
+            modelPos = V(tTool['x'], tTool['y'], tTool['z'])
+        # tool rotation (in relation to flange)
+        rTool = data.get('modelRot')
+        if rTool:
+            modelRot = R(rTool['x'], rTool['y'], rTool['z'], rTool['w'])
+
+        self.toolchange(pos, rot, mass, massCenterPos, modelFile, modelPos, modelRot)
+
+
+    def toolchange(self, pos=V(), rot=R(), mass=0.001, massCenterPos=V(), 
+             modelFile=None, modelPos=V(), modelRot=R()):
         """Change the tool of the robot.
 
         pos,rot: Tool frame transform from robot flange
@@ -95,7 +172,7 @@ class Path(object):
         massCenterPos: Translation from robot flange to 
                        tool center of mass.
         """
-        defprops = (pos, rot, mass, massCenterPos)
+        defprops = (pos, rot, mass, massCenterPos, modelFile, modelPos, modelRot)
         varname = self.match_or_add(self.tooldefs, defprops, 'gxtool')
         command = ('tool', varname)
         self.commands.append(command)
@@ -179,5 +256,15 @@ class Path(object):
             defdict[1][newnamekey] = value
             return newnamekey
 
-    def get_def_val(self, defdict, key):
-        return defdict[1][key]
+
+    def gettool(self, key):
+        return self.tooldefs[1][key]
+
+    def getframe(self, key):
+        return self.framedefs[1][key]
+
+    def getspeed(self, key):
+        return self.speeddefs[1][key]
+
+    def getzone(self, key):
+        return self.zonedefs[1][key]

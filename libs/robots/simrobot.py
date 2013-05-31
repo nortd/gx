@@ -200,16 +200,28 @@ class Robot(baserobot.Robot):
                 dur = command[2]
             elif typ == "tool":
                 name = command[1]
-
+                vals = path.gettool(name)
+                pos - vals[0]
+                rot = vals[1]
+                mass = vals[2]
+                massCenterPos = vals[3]
+                modelFile = vals[4]
+                modelPos = vals[5]
+                modelRot = vals[6]
             elif typ == "frame":
                 name = command[1]
-
+                vals = path.getframe(name)
+                pos = vals[0]
+                rot = vals[1]
             elif typ == "speed":
                 name = command[1]
-
+                vals = path.getspeed(name)
+                lin = vals[0]
+                rot = vals[1]
             elif typ == "zone":
                 name = command[1]
-
+                vals = path.getzone(name)
+                radius = vals[0]
             else:
                 raise Exception("invalid command type")
 
@@ -281,7 +293,6 @@ class Robot(baserobot.Robot):
 
         TODO: mass, center of mass
         """
-
         if not search_path:
             thislocation = os.path.dirname(os.path.realpath(__file__))
             search_path = os.path.join(thislocation, 'tools')

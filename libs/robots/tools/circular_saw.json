@@ -1,6 +1,8 @@
 {
-    "rotation": {"w":1,"x":0,"y":1,"z":0},
-    "translation": {"x":0, "y":0, "z":0},
-    "rotation_tcp": {"w":1,"x":0,"y":0,"z":0},
-    "translation_tcp": {"x":0, "y":-50, "z":225}
+    "pos": {"x":0, "y":-50, "z":225},
+    "rot": {"w":1,"x":0,"y":0,"z":0},
+    "modelPos": {"x":0, "y":0, "z":0},
+    "modelRot": {"w":1,"x":0,"y":1,"z":0},
+    "mass": 5.0,
+    "massCenterPos": {"x":0, "y":0, "z":0}
 }
