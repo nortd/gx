@@ -149,7 +149,7 @@ class Robot(baserobot.Robot):
         return '\n'.join(code)
 
 
-    def waypoint(self, pos, rot):
+    def target(self, pos, rot):
         p = [pos.x, pos.y, pos.z]
         q = [rot.w, rot.x, rot.y, rot.z]
         self.move_linear(p, q)
@@ -233,6 +233,34 @@ class Robot(baserobot.Robot):
         self.main[robot-1].append("%s %s, %s %s, %s, %s \WObj:=%s%s;" % \
             (command, tname, self.currentSpeed, duration, self.currentZone, 
              self.currentTool, self.currentWobj, setSignal))
+
+
+    def move_joint_abs(self, robaxes, extaxes, robot=1, duration=None):
+        """Move the robot to a joint position.
+
+        This is a forward kinematics move that maps to a RAPID MoveAbsJ call.
+        It typically takes a jointtarget, speed, zone, tool data. Tool data is
+        only used for its information about mass.
+
+        duration: in seconds, if specified the controller will overwrite 
+        the speed setting and it will try to reach the pose in that time.
+
+        MoveAbsJ p50, v1000, z50, tool2;
+        MoveAbsJ *, v1000\T:=5, fine, grip3;
+        MoveAbsJ [\Conc] ToJointPos [\ID] [\NoEOffs] Speed [\V] | [\T] Zone [\Z] [\Inpos] Tool [\WObj]
+        """
+        command = "MoveAbsJ"
+        tname = "axes" + str(self.tcounter)
+        self.tcounter += 1
+        self._add_axistarget_var(tname, robaxes, extaxes)
+        if duration:
+            duration = "\T:=%s" % (duration)
+        else:
+            duration = ""
+        self.main[robot-1].append("%s %s, %s %s, %s, %s;" % \
+            (command, tname, self.currentSpeed, duration, self.currentZone, 
+             self.currentTool))
+
 
 
     def digital_out(self, signal="do1", state=1, delay=0, wait=0, sync=False, robot=1):
@@ -328,16 +356,23 @@ class Robot(baserobot.Robot):
         main.append("  SyncMoveUndo;")
 
 
-    def _add_robtarget_var(self, varname, pos, orient, conf, extAxes, robot=1):
+    def _add_robtarget_var(self, varname, pos, orient, conf, extaxes, robot=1):
         """Define a robtarget for moves."""
         vars_ = self.vars[robot-1]
-        robtarget = [pos, orient, conf, extAxes]
+        robtarget = [pos, orient, conf, extaxes]
         vars_.append("CONST robtarget %s := %s;" % (varname, robtarget))
 
 
-    def _add_tool_var(self, varname, holdingTool=True, 
-                      toolPos=[0,0,0], toolRot=[1,0,0,0], toolMass=0.001, 
-                      toolCenterPos=[0,0,0],toolCenterRot=[1,0,0,0]):
+    def _add_axistarget_var(self, varname, robaxes, extaxes, robot=1):
+        """Define an axis target for abs moves."""
+        vars_ = self.vars[robot-1]
+        axistarget = [list(robaxes), list(extaxes)]
+        vars_.append("CONST jointtarget %s := %s;" % (varname, axistarget))
+        # CONST jointtarget calib_pos := [[ 0, 0, 0, 0, 0, 0], [ 0, 0, 0, 0, 0, 0]];
+
+
+    def _add_tool_var(self, varname, holding=True, pos=[0,0,0], rot=[1,0,0,0], 
+                      mass=0.001, massCenterPos=[0,0,0], massCenterRot=[1,0,0,0]):
         """Define a tool.
 
         The array has the following data:
@@ -349,7 +384,7 @@ class Robot(baserobot.Robot):
         PERS tooldata tool0 := [TRUE, [[0,0,0], [1,0,0,0]], [0.001,[0,0,0.001],[1,0,0,0],0,0,0]];
         """
         vars_ = self.vars[robot-1]
-        tool = [holdingTool,[toolPos,toolRot],[toolMass,massCenterPos,massCenterRot,0,0,0]]
+        tool = [holding,[pos,rot],[mass,massCenterPos,massCenterRot,0,0,0]]
         vars_.append("PERS tooldata %s := %s;" % (varname, tool))
 
 
@@ -385,32 +420,32 @@ class Robot(baserobot.Robot):
         extrot: rotational speed external axes (deg/s)
 
         Stock definitions:
-        v5 5 mm/s 500°/s 5000 mm/s 1000°/s
-        v10 10 mm/s 500°/s 5000 mm/s 1000°/s
-        v25 20 mm/s 500°/s 5000 mm/s 1000°/s
-        v30 30 mm/s 500°/s 5000 mm/s 1000°/s
-        v40 40 mm/s 500°/s 5000 mm/s 1000°/s
-        v50 Name 50 mm/s 500°/s 5000 mm/s 1000°/s
-        v60 60 mm/s 500°/s 5000 mm/s 1000°/s
-        v80 80 mm/s 500°/s 5000 mm/s 1000°/s
-        v100 100 mm/s 500°/s 5000 mm/s 1000°/s
-        v150 150 mm/s 500°/s 5000 mm/s 1000°/s
-        v200 200 mm/s 500°/s 5000 mm/s 1000°/s
-        v300 300 mm/s 500°/s 5000 mm/s 1000°/s
-        v400 400 mm/s 500°/s 5000 mm/s 1000°/s
-        v500 500 mm/s 500°/s 5000 mm/s 1000°/s
-        v600 600 mm/s 500°/s 5000 mm/s 1000°/s
-        v800 800 mm/s 500°/s 5000 mm/s 1000°/s
-        v1000 1000 mm/s 500°/s 5000 mm/s 1000°/s
-        v1500 1500 mm/s 500°/s 5000 mm/s 1000°/s
-        v2000 2000 mm/s 500°/s 5000 mm/s 1000°/s
-        v2500 2500 mm/s 500°/s 5000 mm/s 1000°/s
-        v3000 3000 mm/s 500°/s 5000 mm/s 1000°/s
-        v4000 4000 mm/s 500°/s 5000 mm/s 1000°/s
-        v5000 5000 mm/s 500°/s 5000 mm/s 1000°/s
-        v6000 6000 mm/s 500°/s 5000 mm/s 1000°/s
-        v7000 7000 mm/s 500°/s 5000 mm/s 1000°/s
-        vmax * 500°/s 5000 mm/s 1000°/s
+        v5 5 mm/s 500deg/s 5000 mm/s 1000deg/s
+        v10 10 mm/s 500deg/s 5000 mm/s 1000deg/s
+        v25 20 mm/s 500deg/s 5000 mm/s 1000deg/s
+        v30 30 mm/s 500deg/s 5000 mm/s 1000deg/s
+        v40 40 mm/s 500deg/s 5000 mm/s 1000deg/s
+        v50 Name 50 mm/s 500deg/s 5000 mm/s 1000deg/s
+        v60 60 mm/s 500deg/s 5000 mm/s 1000deg/s
+        v80 80 mm/s 500deg/s 5000 mm/s 1000deg/s
+        v100 100 mm/s 500deg/s 5000 mm/s 1000deg/s
+        v150 150 mm/s 500deg/s 5000 mm/s 1000deg/s
+        v200 200 mm/s 500deg/s 5000 mm/s 1000deg/s
+        v300 300 mm/s 500deg/s 5000 mm/s 1000deg/s
+        v400 400 mm/s 500deg/s 5000 mm/s 1000deg/s
+        v500 500 mm/s 500deg/s 5000 mm/s 1000deg/s
+        v600 600 mm/s 500deg/s 5000 mm/s 1000deg/s
+        v800 800 mm/s 500deg/s 5000 mm/s 1000deg/s
+        v1000 1000 mm/s 500deg/s 5000 mm/s 1000deg/s
+        v1500 1500 mm/s 500deg/s 5000 mm/s 1000deg/s
+        v2000 2000 mm/s 500deg/s 5000 mm/s 1000deg/s
+        v2500 2500 mm/s 500deg/s 5000 mm/s 1000deg/s
+        v3000 3000 mm/s 500deg/s 5000 mm/s 1000deg/s
+        v4000 4000 mm/s 500deg/s 5000 mm/s 1000deg/s
+        v5000 5000 mm/s 500deg/s 5000 mm/s 1000deg/s
+        v6000 6000 mm/s 500deg/s 5000 mm/s 1000deg/s
+        v7000 7000 mm/s 500deg/s 5000 mm/s 1000deg/s
+        vmax * 500deg/s 5000 mm/s 1000deg/s
         """
         vars_ = self.vars[robot-1]
         speed = [lin, rot, extlin, extrot]
@@ -437,20 +472,20 @@ class Robot(baserobot.Robot):
 
         Stock definitions:
         fine ... stop point
-        z0 0.3 mm 0.3 mm 0.3 mm 0.03° 0.3 mm 0.03°
-        z1 1 mm 1 mm 1 mm 0.1° 1 mm 0.1°
-        z5 5 mm 8 mm 8 mm 0.8° 8 mm 0.8°
-        z10 10 mm 15 mm 15 mm 1.5° 15 mm 1.5°
-        z15 15 mm 23 mm 23 mm 2.3° 23 mm 2.3°
-        z20 20 mm 30 mm 30 mm 3.0° 30 mm 3.0°
-        z30 30 mm 45 mm 45 mm 4.5° 45 mm 4.5°
-        z40 40 mm 60 mm 60 mm 6.0° 60 mm 6.0°
-        z50 50 mm 75 mm 75 mm 7.5° 75 mm 7.5°
-        z60 60 mm 90 mm 90 mm 9.0° 90 mm 9.0°
-        z80 80 mm 120 mm 120 mm 12° 120 mm 12°
-        z100 100 mm 150 mm 150 mm 15° 150 mm 15°
-        z150 150 mm 225 mm 225 mm 23° 225 mm 23°
-        z200 200 mm 300 mm 300 mm 30° 300 mm 30°
+        z0 0.3 mm 0.3 mm 0.3 mm 0.03deg 0.3 mm 0.03deg
+        z1 1 mm 1 mm 1 mm 0.1deg 1 mm 0.1deg
+        z5 5 mm 8 mm 8 mm 0.8deg 8 mm 0.8deg
+        z10 10 mm 15 mm 15 mm 1.5deg 15 mm 1.5deg
+        z15 15 mm 23 mm 23 mm 2.3deg 23 mm 2.3deg
+        z20 20 mm 30 mm 30 mm 3.0deg 30 mm 3.0deg
+        z30 30 mm 45 mm 45 mm 4.5deg 45 mm 4.5deg
+        z40 40 mm 60 mm 60 mm 6.0deg 60 mm 6.0deg
+        z50 50 mm 75 mm 75 mm 7.5deg 75 mm 7.5deg
+        z60 60 mm 90 mm 90 mm 9.0deg 90 mm 9.0deg
+        z80 80 mm 120 mm 120 mm 12deg 120 mm 12deg
+        z100 100 mm 150 mm 150 mm 15deg 150 mm 15deg
+        z150 150 mm 225 mm 225 mm 23deg 225 mm 23deg
+        z200 200 mm 300 mm 300 mm 30deg 300 mm 30deg
         """
 
         if not pzone_ori:
