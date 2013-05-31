@@ -195,9 +195,17 @@ class Robot(baserobot.Robot):
                 frame = command[6]
                 speed = command[7]
                 zone = command[8]
+                signal = command[9]
+                state = command[10]
             elif typ == "axistarget":
                 axes = command[1]
                 dur = command[2]
+            elif typ == "gpio":
+                name = command[1]
+                state = command[2]
+                delay = command[3]
+                wait = command[4]
+                sync = command[5]
             elif typ == "tool":
                 name = command[1]
                 vals = path.gettool(name)

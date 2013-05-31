@@ -38,7 +38,7 @@ class Path(object):
         self.counter = 0
 
 
-    def target(self, pos, rot, dur=None):
+    def target(self, pos, rot, dur=None, signal=None, state=1):
         """Add a targe to the path.
 
         A target is primarily defined by a location and rotation of the
@@ -47,9 +47,12 @@ class Path(object):
         transform, speed settings, zone settings.
 
         dur: Duration of the move (s). This overwrites any speed settings.
+        signal: Name of the signal to switch at this target point.
+        state: Signal state: On (1), off (0)
         """
         command = ('target', pos, rot, dur, self.inter_curr, 
-                   self.tool_curr, self.frame_curr, self.speed_curr, self.zone_curr)
+                   self.tool_curr, self.frame_curr, self.speed_curr, self.zone_curr,
+                   signal, state)
         self.commands.append(command)
 
 
@@ -84,6 +87,19 @@ class Path(object):
             self.commands.append(command)
         else:
             raise Exception("invalid axes length")
+
+
+    def gpio(self, name, state=1, delay=0, wait=0, sync=False):
+        """Change state of a gpio signal.
+
+        name: Name of the signal.
+        state: On (1), off (0), or pulse (3)
+        delay: in seconds before setting the signal
+        wait: in seconds after setting the signal
+        sync: wait until the signal is physically set
+        """
+        command = ('gpio', name, state, delay, wait, sync)
+        self.commands.append(command)        
 
 
     def tool(self, name, search_path=None):
