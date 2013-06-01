@@ -131,7 +131,7 @@ class Pose(object):
     @classmethod
     def new_interpolate(cls, pose1, pose2, t):
         assert isinstance(pose1, Pose) and isinstance(pose2, Pose)
-        pos = euclid.Vector3.new_interpolate(pose1.pos, pose2.pos, t)
+        pos = euclid.Point3.new_interpolate(pose1.pos, pose2.pos, t)
         rot = euclid.Quaternion.new_interpolate(pose1.rot, pose2.rot, t)
         return cls(pos, rot)
 

@@ -15,7 +15,6 @@ from gx.libs import form
 from gx.libs.robots import baserobot
 from gx.libs.euclid import euclid
 from gx.libs.vectormath import *
-from gx.libs.robots.trajectory import Target, Trajectory
 
 try:
     import FreeCAD
@@ -64,9 +63,7 @@ class Robot(baserobot.Robot):
         self._workframe = Pose(V(), R())
 
         # trajectory
-        self.trajectory = Trajectory()
-        self.rot_now = R()
-        self.velocity_now = 100
+        self._path = None
 
         # change Workbench
         # if hasattr(FreeCAD, 'Gui'):
@@ -82,13 +79,19 @@ class Robot(baserobot.Robot):
         # animations, this is robot animation chain
         self.animations = []
 
+        # some rotational presets
+        self.UP = R()
+        self.FRONT = aR(pi/2, V(0,1,0))
+        self.DOWN = aR(pi, V(0,1,0))
+        self.LEFT = self.FRONT * aR(-pi/2, V(1,0,0))
+        self.RIGHT = self.FRONT * aR(pi/2, V(1,0,0))
+
         # init pose
         self.axes = (0,0,0,0,0,0)
         _p = self.rob.Tcp.Base
         self.pos = P(_p.x, _p.y, _p.z)
         # self.toolrotate_to(0, math.pi/2.0, 0)
-        forward = aR(pi/2, V(0,1,0))
-        self.rot = forward
+        self.rot = self.FRONT
 
 
 
@@ -115,7 +118,7 @@ class Robot(baserobot.Robot):
     @pos.setter
     def pos(self, p):
         if isinstance(p, P) or isinstance(p, V):
-            if isinstance(p, V):  #relative
+            if not isinstance(p, P):  #relative
                 p += self.tcp_pos
             self.tcp_pos = p
             _q = self.rob.Tcp.Rotation.Q
@@ -224,6 +227,8 @@ class Robot(baserobot.Robot):
             else:
                 raise Exception("invalid command type")
 
+        self.generate_freecad_trajectory()  # for visualization mostly
+
 
 
     def generate_freecad_trajectory(self):
@@ -236,10 +241,10 @@ class Robot(baserobot.Robot):
         """
         doc = FreeCAD.activeDocument()
         traj = doc.addObject("Robot::TrajectoryObject","Trajectory").Trajectory
-        for target in self.trajectory:
-            pos = target.pos
-            rot = target.rot
-            velocity = target.linspeed
+        for target in self._path:
+            pos = target[0].pos
+            rot = target[0].rot
+            velocity = target[2]
             _pose = FreeCAD.Placement(FreeCAD.Vector(pos.x, pos.y, pos.z), 
                                       FreeCAD.Rotation(rot.x, rot.y, rot.z, rot.w))
             wp = fcRobot.Waypoint(_pose, "LIN", "Pt", velocity, False)
@@ -409,8 +414,8 @@ class Robot(baserobot.Robot):
                 if linspeed == 0:
                     dur = 0.0
                 else:
-                    dur = dist/linspeed
-                self.animations.append((last_pose, pose, dur, None))
+                    dur = dist/float(linspeed)
+                self.animations.append([last_pose, pose, dur, None])
             last_pose = pose
 
         # setup timer callback
@@ -446,7 +451,7 @@ class Robot(baserobot.Robot):
         if not state:
             # new motion condition
             # FreeCAD.Console.PrintMessage('*')
-            state = time.time()
+            self.animations[0][3] = time.time()  # set state
             self.pose(last_pose)
         else:
             # continue motion
@@ -464,10 +469,11 @@ class Robot(baserobot.Robot):
 
             # linear and SLERP interpolation
             self.pose(Pose.new_interpolate(last_pose, pose, t_pct))
+
             # this is how to manually compensate for the tool trans
             # r.rob.Tcp = r.path.Waypoints[0].Pos.multiply(r.rob.Tool.inverse())
 
-        FreeCAD.Console.PrintMessage('>')
+        # FreeCAD.Console.PrintMessage('>')
 
 
 
