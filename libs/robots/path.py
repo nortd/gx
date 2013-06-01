@@ -83,7 +83,7 @@ class Path(object):
              other speed settings.
         """
         if len(axes) == 6:
-            command = ('axistarget', axes, dur)
+            command = ('axistarget', axes, dur, self.speed_curr)
             self.commands.append(command)
         else:
             raise Exception("invalid axes length")
@@ -149,31 +149,31 @@ class Path(object):
         modelRot = R()
 
         # tcp translation (in relation to flange)
-        tTcp = data.get('pos')
-        if tTcp:
-            pos = V(tTcp['x'], tTcp['y'], tTcp['z'])
+        p = data.get('pos')
+        if p:
+            pos = V(p[0], p[1], p[2])
         # tcp rotation (in relation to flange)
-        rTcp = data.get('rot')
-        if rTcp:
-            rot = R(rTcp['x'], rTcp['y'], rTcp['z'], rTcp['w'])
+        r = data.get('rot')
+        if r:
+            rot = R(r[0], r[1], r[2], r[3])
 
         # mass (kg)
         masskg = data.get('mass')
         if masskg:
             mass = masskg
         # mass translation (in relation to flange)
-        tMass = data.get('massCenterPos')
-        if tMass:
-            modelPos = V(tMass['x'], tMass['y'], tMass['z'])
+        p = data.get('massCenterPos')
+        if p:
+            modelPos = V(p[0], p[1], p[2])
         
         # tool translation (in relation to flange)
-        tTool = data.get('modelPos')
-        if tTool:
-            modelPos = V(tTool['x'], tTool['y'], tTool['z'])
+        p = data.get('modelPos')
+        if p:
+            modelPos = V(p[0], p[1], p[2])
         # tool rotation (in relation to flange)
-        rTool = data.get('modelRot')
-        if rTool:
-            modelRot = R(rTool['x'], rTool['y'], rTool['z'], rTool['w'])
+        r = data.get('modelRot')
+        if r:
+            modelRot = R(r[0], r[1], r[2], r[3])
 
         self.toolchange(pos, rot, mass, massCenterPos, modelFile, modelPos, modelRot)
 
@@ -233,8 +233,8 @@ class Path(object):
         """
         defprops = (lin, rot)
         varname = self.match_or_add(self.speeddefs, defprops, 'gxspeed')
-        command = ('speed', varname)
-        self.commands.append(command)
+        # command = ('speed', varname)
+        # self.commands.append(command)
         self.speed_curr = varname
 
 
@@ -249,8 +249,8 @@ class Path(object):
         """
         defprops = (radius,)
         varname = self.match_or_add(self.zonedefs, defprops, 'gxzone')
-        command = ('zone', varname)
-        self.commands.append(command)
+        # command = ('zone', varname)
+        # self.commands.append(command)
         self.zone_curr = varname
 
 

@@ -183,44 +183,60 @@ class Robot(baserobot.Robot):
 
     def path(self, path):
         """Set path of the robot."""
-
+        self._path = []  # reset
         for command in path:
             typ = command[0]
             if typ == "target":
                 pos = command[1]
                 rot = command[2]
                 dur = command[3]
-                inter = command[4]
-                tool = command[5]
-                frame = command[6]
+                # inter = command[4]
+                # tool = command[5]
+                # frame = command[6]
                 speed = command[7]
-                zone = command[8]
-                signal = command[9]
-                state = command[10]
+                # zone = command[8]
+                # signal = command[9]
+                # state = command[10]
+                # tooldata = path.gettool(tool)
+                # framedata = path.getframe(frame)
+                speeddata = path.getspeed(speed)
+                # zonedata = path.getzone(zone)
+                linspeed = speeddata[0]
+                rotspeed = speeddata[1]
+                # finally add the data we need
+                # other data is not used yet but can be in future
+                self._path.append(pos, rot, dur, linspeed, rotspeed)
             elif typ == "axistarget":
                 axes = command[1]
                 dur = command[2]
+                speed = command[3]
+                speeddata = path.getspeed(speed)
+                rotspeed = speeddata[1]
+                self._path.append(axes, dur, rotspeed)
             elif typ == "gpio":
-                name = command[1]
-                state = command[2]
-                delay = command[3]
-                wait = command[4]
-                sync = command[5]
+                # name = command[1]
+                # state = command[2]
+                # delay = command[3]
+                # wait = command[4]
+                # sync = command[5]
+                pass
             elif typ == "tool":
-                name = command[1]
-                vals = path.gettool(name)
-                pos - vals[0]
-                rot = vals[1]
-                mass = vals[2]
-                massCenterPos = vals[3]
-                modelFile = vals[4]
-                modelPos = vals[5]
-                modelRot = vals[6]
+                # name = command[1]
+                # vals = path.gettool(name)
+                # pos - vals[0]
+                # rot = vals[1]
+                # mass = vals[2]
+                # massCenterPos = vals[3]
+                # modelFile = vals[4]
+                # modelPos = vals[5]
+                # modelRot = vals[6]
+                pass
             elif typ == "frame":
-                name = command[1]
-                vals = path.getframe(name)
-                pos = vals[0]
-                rot = vals[1]
+                # name = command[1]
+                # vals = path.getframe(name)
+                # pos = vals[0]
+                # rot = vals[1]
+                pass
             elif typ == "speed":
                 name = command[1]
                 vals = path.getspeed(name)
@@ -427,6 +443,7 @@ class Robot(baserobot.Robot):
               handler and make sure it will be reached.
         """
         # FreeCAD.Console.PrintMessage('<')
+        # end condition
         if len(self.animations) == 0:
             # FreeCAD.Console.PrintMessage('-')
             self.stop()
@@ -434,12 +451,13 @@ class Robot(baserobot.Robot):
 
         anim = self.animations[0]
         if not anim[5]:
+            # new motion condition
             # FreeCAD.Console.PrintMessage('*')
-            # starting new motion
             anim[5] = time.time()
             self.pos = anim[0]
             self.rot = anim[2]
         else:
+            # continue motion
             # FreeCAD.Console.PrintMessage('+')
             dt = time.time() - anim[5]
             duration = anim[4]
