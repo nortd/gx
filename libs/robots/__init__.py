@@ -37,3 +37,8 @@ def oadmultibot():
 		_openabbmultirobot.append(openabbrobot.Robot(port=6000))
 		_openabbmultirobot.append(openabbrobot.Robot(port=7000))
 	return _openabbmultirobot
+
+
+def robpath():
+	from gx.libs.robots.path import Path
+	return Path()

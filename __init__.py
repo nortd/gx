@@ -69,6 +69,31 @@ def run(name):
                     app_to_run = os.path.join(currentapploc, 'main.py')
                 else:
                     print "WARN: multiple apps with this name"
+    appsloc = os.path.join(thisloc, 'examples')
+    items = os.listdir(appsloc)
+    for item in items:
+        if item == name+'.py' and os.path.isfile(os.path.join(appsloc, item)):
+            print item
+            # got a match
+            if not app_to_run:
+                app_to_run = os.path.join(appsloc, item)
+            else:
+                print "WARN: multiple apps with this name"
+        elif item == name and os.path.isdir(os.path.join(appsloc, item)):
+            currentapploc = os.path.join(appsloc, item)
+            appitems = os.listdir(currentapploc)
+            if name+'.py' in appitems:
+                # got a match
+                if not app_to_run:
+                    app_to_run = os.path.join(currentapploc, name+'.py')
+                else:
+                    print "WARN: multiple apps with this name"  
+            elif 'main.py' in appitems:
+                # got a match
+                if not app_to_run:
+                    app_to_run = os.path.join(currentapploc, 'main.py')
+                else:
+                    print "WARN: multiple apps with this name"
     if app_to_run:
         print "INFO: running " + app_to_run
         globals_other = {}

@@ -184,7 +184,7 @@ class Robot(baserobot.Robot):
     def path(self, path):
         """Set path of the robot."""
         self._path = []  # reset
-        for command in path:
+        for command in path.commands:
             typ = command[0]
             if typ == "target":
                 pos = command[1]
@@ -205,14 +205,15 @@ class Robot(baserobot.Robot):
                 rotspeed = speeddata[1]
                 # finally add the data we need
                 # other data is not used yet but can be in future
-                self._path.append(pos, rot, dur, linspeed, rotspeed)
+                self._path.append((Pose(pos,rot), dur, linspeed, rotspeed))
             elif typ == "axistarget":
-                axes = command[1]
-                dur = command[2]
-                speed = command[3]
-                speeddata = path.getspeed(speed)
-                rotspeed = speeddata[1]
-                self._path.append(axes, dur, rotspeed)
+                # axes = command[1]
+                # dur = command[2]
+                # speed = command[3]
+                # speeddata = path.getspeed(speed)
+                # rotspeed = speeddata[1]
+                # self._path.append(axes, dur, rotspeed)
+                pass
             elif typ == "gpio":
                 # name = command[1]
                 # state = command[2]
@@ -220,32 +221,6 @@ class Robot(baserobot.Robot):
                 # wait = command[4]
                 # sync = command[5]
                 pass
-            elif typ == "tool":
-                # name = command[1]
-                # vals = path.gettool(name)
-                # pos - vals[0]
-                # rot = vals[1]
-                # mass = vals[2]
-                # massCenterPos = vals[3]
-                # modelFile = vals[4]
-                # modelPos = vals[5]
-                # modelRot = vals[6]
-                pass
-            elif typ == "frame":
-                # name = command[1]
-                # vals = path.getframe(name)
-                # pos = vals[0]
-                # rot = vals[1]
-                pass
-            elif typ == "speed":
-                name = command[1]
-                vals = path.getspeed(name)
-                lin = vals[0]
-                rot = vals[1]
-            elif typ == "zone":
-                name = command[1]
-                vals = path.getzone(name)
-                radius = vals[0]
             else:
                 raise Exception("invalid command type")
 
@@ -298,82 +273,103 @@ class Robot(baserobot.Robot):
     # Robot State
 
     def tool(self, tool_name, search_path=None):
-        """Set the tool of the robot.
+        """Loads a tool definition from file.
 
         This function adds a tool to the robot based on a tool definition.
-        A tool definition is a json file specifying the transforms and a
-        vrml file specifying the shape.
-        tool_name: Name, also corresponds to tool_name.json and tool_name.wrl
+        A tool definition is a json file specifying tcp pose, mass, center of
+        mass pos, model pose. A model file (.wrl) of the same name is used too.
+        name: Corresponds to tool_name.json and tool_name.wrl.
         search_path: The directory to look for tool. By default this function 
                      looks for the tool in libs/robots/tools
 
         json file format:
         {
-            "translation": {"x":0, "y":-50, "z":225},
-            "rotation": {"w":1,"x":0,"y":0,"z":1},
-            "translation_tcp": {"x":0, "y":0, "z":0},
-            "rotation_tcp": {"w":1,"x":0,"y":1,"z":0}
+            "pos": {"x":0, "y":-50, "z":225},
+            "rot": {"w":1,"x":0,"y":0,"z":0},
+            "modelPos": {"x":0, "y":0, "z":0},
+            "modelRot": {"w":1,"x":0,"y":1,"z":0},
+            "mass": 5.0,
+            "massCenterPos": {"x":0, "y":0, "z":0},
         }
-
-        TODO: mass, center of mass
         """
         if not search_path:
             thislocation = os.path.dirname(os.path.realpath(__file__))
             search_path = os.path.join(thislocation, 'tools')
-
         tooldefjson = os.path.join(search_path, tool_name + '.json')
         tooldefwrl = os.path.join(search_path, tool_name + '.wrl')
-
         if not os.path.exists(tooldefjson):
             print("ERROR: tool def json file not found: %s" % (tooldefjson))
             return
         if not os.path.exists(tooldefwrl):
-            print("ERROR: tool def vrml file not found: %s" % (tooldefwrl))
-            return
-        
+            modelFile = None
+        else:
+            modelFile = tooldefwrl
+
         # open, attach wrl file
         FreeCAD.Gui.insert(tooldefwrl, FreeCAD.activeDocument().Name)  #TODO: open file without using Gui
         # self.rob.ToolShape = FreeCAD.activeDocument().circular_saw
         self.rob.ToolShape =  FreeCAD.ActiveDocument.Objects[-1]
+
         # set transforms
         with open(tooldefjson) as data_file:
             data = json.load(data_file)
 
-        # tool translation (in relation to flange)
-        tTool = data.get('translation')
-        if tTool:
-            self.rob.ToolBase.Base = (tTool['x'], tTool['y'], tTool['z'])
-        # tool rotation (in relation to flange)
-        rTool = data.get('rotation')
-        if rTool:
-            self.rob.ToolBase.Rotation.Q = (rTool['x'], rTool['y'], rTool['z'], rTool['w'])
+        pos = V()
+        rot = R()
+        mass = 0.001
+        massCenterPos = V()
+        modelPos = V()
+        modelRot = R()
+
         # tcp translation (in relation to flange)
-        tTcp = data.get('translation_tcp')
-        if tTcp:
-            self.rob.Tool.Base = (tTcp['x'], tTcp['y'], tTcp['z'])
+        p = data.get('pos')
+        if p:
+            pos = V(p[0], p[1], p[2])
         # tcp rotation (in relation to flange)
-        rTcp = data.get('rotation_tcp')
-        if rTcp:
-            self.rob.Tool.Rotation.Q = (rTcp['x'], rTcp['y'], rTcp['z'], rTcp['w'])
+        r = data.get('rot')
+        if r:
+            rot = R(r[0], r[1], r[2], r[3])
+
+        # mass (kg)
+        masskg = data.get('mass')
+        if masskg:
+            mass = masskg
+        # mass translation (in relation to flange)
+        p = data.get('massCenterPos')
+        if p:
+            modelPos = V(p[0], p[1], p[2])
+        
+        # tool translation (in relation to flange)
+        p = data.get('modelPos')
+        if p:
+            modelPos = V(p[0], p[1], p[2])
+        # tool rotation (in relation to flange)
+        r = data.get('modelRot')
+        if r:
+            modelRot = R(r[0], r[1], r[2], r[3])
+
+        # assign to robot
+        self.rob.Tool.Base = (pos.x, pos.y, pos.z)
+        self.rob.Tool.Rotation.Q = (rot.x, rot.y, rot.z, rot.w)
+        self.rob.ToolBase.Base = (modelPos.x, modelPos.y, modelPos.z)
+        self.rob.ToolBase.Rotation.Q = (modelRot.x, modelRot.y, modelRot.z, modelRot.w)
 
         # store for later use
         tplace = self.rob.Tool
         p = tplace.Base
-        self.tool_pos = euclid.Point3(p[0], p[1], p[2])
+        self.tool_pos = V(p[0], p[1], p[2])
         q = tplace.Rotation.Q
-        self.tool_rot = euclid.Quaternion(q[3], q[0], q[1], q[2])
-        # FreeCAD.Console.PrintMessage(self.tool_rot.get_angle_axis())
+        self.tool_rot = R(q[3], q[0], q[1], q[2])
         #inverse
         tplace_inv = self.rob.Tool.inverse()
         pinv = tplace_inv.Base
-        self.tool_pos_inv = euclid.Point3(pinv[0], pinv[1], pinv[2])
+        self.tool_pos_inv = V(pinv[0], pinv[1], pinv[2])
         qinv = tplace_inv.Rotation.Q
-        self.tool_rot_inv = euclid.Quaternion(qinv[3], qinv[0], qinv[1], qinv[2])
-        # FreeCAD.Console.PrintMessage(self.tool_rot_inv.get_angle_axis())
-        # FreeCAD.Console.PrintMessage(self.tool_rot.inverse().get_angle_axis())
+        self.tool_rot_inv = R(qinv[3], qinv[0], qinv[1], qinv[2])
 
         # update pos so tool end is new tcp
         self.pos = self.pos
+
 
 
     def frame(self, origin, xpoint, ypoint):
@@ -399,29 +395,23 @@ class Robot(baserobot.Robot):
     # ###########################################
     # Simbot Animation
 
-    def add_animation(self, pos1, pos2, rot1, rot2, duration):
-        self.animations.append([pos1, pos2, rot1, rot2, duration, None])
-
-
     def go(self):
-        # add animations from waypoints
-        last_pos = None
-        last_rot = None
-        for wp in self.path.Waypoints:
-            pos_ = wp.Pos.Base
-            pos = euclid.Point3(pos_.x, pos_.y, pos_.z)
-            rot_ = wp.Pos.Rotation.Q
-            rot = euclid.Quaternion(rot_[3], rot_[0], rot_[1], rot_[2])
-            if last_pos and last_rot:
-                vel = wp.Velocity  # mm/s
-                dist = last_pos.distance(pos)
-                if vel == 0:
+        """Take path and generate animation."""
+        last_pose = None
+        for target in self._path:
+            # target has (pose, dur, linspeed, rotspeed)
+            pose = target[0]
+            dur = target[1]
+            linspeed = target[2]
+            rotspeed = target[3]
+            if last_pose:
+                dist = last_pose.pos.distance(pose.pos)
+                if linspeed == 0:
                     dur = 0.0
                 else:
-                    dur = dist/vel
-                self.add_animation(last_pos, pos, last_rot, rot, dur)
-            last_pos = pos
-            last_rot = rot
+                    dur = dist/linspeed
+                self.animations.append((last_pose, pose, dur, None))
+            last_pose = pose
 
         # setup timer callback
         self.timer = QtCore.QTimer()
@@ -449,20 +439,21 @@ class Robot(baserobot.Robot):
             self.stop()
             return
 
-        anim = self.animations[0]
-        if not anim[5]:
+        last_pose = self.animations[0][0]
+        pose = self.animations[0][1]
+        dur = self.animations[0][2]
+        state = self.animations[0][3]
+        if not state:
             # new motion condition
             # FreeCAD.Console.PrintMessage('*')
-            anim[5] = time.time()
-            self.pos = anim[0]
-            self.rot = anim[2]
+            state = time.time()
+            self.pose(last_pose)
         else:
             # continue motion
             # FreeCAD.Console.PrintMessage('+')
-            dt = time.time() - anim[5]
-            duration = anim[4]
-            if duration > 0:
-                t_pct = dt/duration
+            dt = time.time() - state
+            if dur > 0:
+                t_pct = dt/dur
             else:
                 t_pct = 1.1  # meaning we are already there
 
@@ -471,17 +462,12 @@ class Robot(baserobot.Robot):
                 t_pct = 1.0
                 self.animations.pop(0)
 
-            # rot, SLERP interpolation
-            q = euclid.Quaternion.new_interpolate(anim[2], anim[3], t_pct)
-            self.rot = q
-            # pos, linear interpolation
-            p = euclid.Point3.new_interpolate(anim[0], anim[1], t_pct)
-            self.pos = p
-
+            # linear and SLERP interpolation
+            self.pose(Pose.new_interpolate(last_pose, pose, t_pct))
             # this is how to manually compensate for the tool trans
             # r.rob.Tcp = r.path.Waypoints[0].Pos.multiply(r.rob.Tool.inverse())
 
-        # FreeCAD.Console.PrintMessage('>')
+        FreeCAD.Console.PrintMessage('>')
 
 
 

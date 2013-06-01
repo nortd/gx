@@ -1,6 +1,6 @@
 
 from gx.libs.vectormath import *
-
+from gx.libs.euclid import euclid
 
 
 class Path(object):
@@ -18,9 +18,12 @@ class Path(object):
         self.speed_curr = None
         self.zone_curr = None
 
+        # counter for unique name generation
+        self.counter = 0
+
         # tool definitions
         self.tooldefs = ({},{})
-        self.tool()  # add default
+        self.toolchange()  # add default
 
         # work frame definitions
         self.framedefs = ({},{})
@@ -32,10 +35,7 @@ class Path(object):
 
         # zone definitions
         self.zonedefs = ({},{})
-        self.zone()  # add default
-
-        # counter for unique name generation
-        self.counter = 0
+        self.zone(0.3)  # add default
 
 
     def target(self, pos, rot, dur=None, signal=None, state=1):
@@ -108,8 +108,6 @@ class Path(object):
         This function adds a tool to the robot based on a tool definition.
         A tool definition is a json file specifying tcp pose, mass, center of
         mass pos, model pose. A model file (.wrl) of the same name is used too.
-         and a
-        vrml file specifying the shape.
         name: Corresponds to tool_name.json and tool_name.wrl.
         search_path: The directory to look for tool. By default this function 
                      looks for the tool in libs/robots/tools
@@ -190,13 +188,13 @@ class Path(object):
         """
         defprops = (pos, rot, mass, massCenterPos, modelFile, modelPos, modelRot)
         varname = self.match_or_add(self.tooldefs, defprops, 'gxtool')
-        command = ('tool', varname)
-        self.commands.append(command)
+        # command = ('tool', varname)
+        # self.commands.append(command)
         self.tool_curr = varname
 
 
 
-    def frame(self, origin, xpoint, ypoint):
+    def frame(self, origin=P(), xpoint=P(1,0,0), ypoint=P(0,1,0)):
         """Change the work object frame (coordinate system).
 
         This is a transform on the base frame (which is a transform on 
@@ -211,17 +209,18 @@ class Path(object):
         """
         ### calculate pose
         x = (origin - xpoint).normalized()
-        z = ypoint.cross(z).normalized()
+        y_ = (origin - ypoint).normalized()
+        z = y_.cross(x).normalized()
         y = x.cross(z)
-        m = euclis.Matrix4.new_rotate_triple_axis(x, y, z)
+        m = euclid.Matrix4.new_rotate_triple_axis(x, y, z)
         # m.d, m.h, m.l = origin.x, origin.y, origin.z
         pos = origin
         rot = m.get_quaternion()
         ### correlate with framedefs
         defprops = (pos, rot)
         varname = self.match_or_add(self.framedefs, defprops, 'gxframe')
-        command = ('frame', varname)
-        self.commands.append(command)
+        # command = ('frame', varname)
+        # self.commands.append(command)
         self.frame_curr = varname
 
 
@@ -268,7 +267,7 @@ class Path(object):
             # add entry
             self.counter += 1
             newnamekey = prefix + str(self.counter)
-            defdict[0][matchkey] = [newnamekey] + value
+            defdict[0][matchkey] = (newnamekey,) + value
             defdict[1][newnamekey] = value
             return newnamekey
 
