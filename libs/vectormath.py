@@ -61,14 +61,19 @@ class Pose(object):
 
 
     def __copy__(self):
-        return self.__class__(pos.copy(), rot.copy())
+        return self.__class__(self.pos.copy(), self.rot.copy())
 
     copy = __copy__
-
 
     def __repr__(self):
         return 'Pose(%s, %s)' % (str(self.pos), str(self.rot))
 
+    def __eq__(self, other):
+        if isinstance(other, Pose):
+            return self.pos == other.pos and \
+                   self.rot == other.rot
+        else:
+            return False
 
     def __mul__(self, other):
         """Multiply pose with other pose, point, or vector.
@@ -109,8 +114,9 @@ class Pose(object):
             assert isinstance(other, euclid.Pose)
 
     def inverse(self):
-        return Pose(-self.pos, 
-            euclid.Quaternion(-self.rot.w, self.rot.x, self.rot.y, self.rot.z))
+        rot = self.rot.conjugated()
+        pos = rot * self.pos
+        return Pose(-pos, rot)
 
     @classmethod
     def new_translate(cls, x, y, z):

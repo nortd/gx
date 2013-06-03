@@ -51,17 +51,12 @@ class Robot(baserobot.Robot):
         self.rob.RobotVrmlFile = defs['wrl']
         self.rob.RobotKinematicFile = defs['csv']
 
-        # tool
-        self.tcp_pos = V()          # actual TCP pos
-        self.tcp_rot = R()          # actual TCP rot
-        self.tool_pos = V()
-        self.tool_rot = R()
-        self.tool_pos_inv = V()
-        self.tool_rot_inv = R()
-
-        # work frame
-        self._workframe = Pose(V(), R())
-        self._workframe_inv = Pose(V(), R())
+        # transforms
+        self._frame = Pose()            # base -> frame
+        self._frame_inv = Pose()        # frame -> base
+        self._pose = Pose()             # frame -> TCP
+        self._toolpose = Pose()         # flange -> TCP
+        self._toolpose_inv = Pose()     # TCP -> flange
 
         # trajectory
         self._path = None
@@ -85,18 +80,21 @@ class Robot(baserobot.Robot):
         self.TABLE = V(800,0,800)
 
         # some rotational presets
-        self.UP = R()
-        self.FRONT = aR(pi/2, V(0,1,0))
-        self.DOWN = aR(pi, V(0,1,0))
-        self.LEFT = self.FRONT * aR(-pi/2, V(1,0,0))
-        self.RIGHT = self.FRONT * aR(pi/2, V(1,0,0))
+        # NOTE: order is backwards
+        # the last quat in multiplication compounds is roatated first
+        self.UP = aR(0.00001, V(0,0,0))
+        self.FRONT = aR(pi/2.00001, V(0,1,0))
+        self.DOWN = aR(pi*1.000001, V(0,1,0))
+        self.LEFT = self.FRONT * aR(-pi/2.000001, V(1,0,0))
+        self.RIGHT = self.FRONT * aR(pi/2.000001, V(1,0,0))
 
         # init pose
-        self.axes = (0,0,0,0,0,0)
-        _p = self.rob.Tcp.Base
-        self.pos = V(_p.x, _p.y, _p.z)
-        # self.toolrotate_to(0, math.pi/2.0, 0)
-        self.rot = self.FRONT
+        # self.axes = (0,0,0,0,0,0)
+        # _p = self.rob.Tcp.Base
+        # self.pos = V(_p.x, _p.y, _p.z)
+        # # self.toolrotate_to(0, math.pi/2.0, 0)
+        # self.rot = self.FRONT
+        self.pose = Pose(self.FLOOR, self.DOWN)
 
 
 
@@ -104,39 +102,53 @@ class Robot(baserobot.Robot):
     # Posing
 
     @property
-    def pose(self, pose):
-        """Pose the tool by setting position and rotation."""
-        self.rot = pose.rot
-        self.pos = pose.pos
-    @pose.setter
     def pose(self):
-        return Pose(self.pos, self.rot)
+        """Returns pose: frame -> TCP"""
+        return self._pose
+    @pose.setter
+    def pose(self, pose):
+        """Set pose: frame -> TCP"""
+        self._pose = pose
+        self._set_base_pose(pose)
+
+
+    def _set_base_pose(self, pose):
+        """Take TCP and set flange pose in base frame."""
+        # flange = (self._frame * self._toolpose) * pose
+        # flange = (pose * self._toolpose_inv) * self._frame
+        flange =  (self._frame * pose) * self._toolpose_inv
+        # pose_in_base = self._frame_inv * pose
+        # print ">>", pose_in_base
+        # flange = self._toolpose_inv * pose_in_base
+        self.rob.Tcp.Base = (flange.pos.x, flange.pos.y, flange.pos.z)
+        self.rob.Tcp.Rotation = FreeCAD.Rotation(flange.rot.x, flange.rot.y, 
+                                                 flange.rot.z, flange.rot.w)
+
+    def _get_base_pose(self):
+        """Get the flange pose in base frame."""
+        _p = self.rob.Tcp.Base
+        p = V(_p[0], _p[1], _p[2])
+        _r = self.rob.Tcp.Rotation.Q
+        r = R(_r[3], _r[0], _r[1], _r[2])
+        return Pose(p,r)
+
 
     # rot properties
     @property
     def rot(self):
-        return self.tcp_rot
+        return self.pose.rot
     @rot.setter
-    def rot(self, q):
-        self.tcp_rot = q
-        q_m = q * self.tool_rot_inv
-        self.rob.Tcp.Rotation = FreeCAD.Rotation(q_m.x, q_m.y, q_m.z, q_m.w)
-        # correct pos
-        self.pos = self.tcp_pos
+    def rot(self, r):
+        self.pose = Pose(self.pose.pos, r)
 
 
     # pos property
     @property
     def pos(self):
-        return self._workframe_inv * self.tcp_pos
+        return self.pose.pos
     @pos.setter
     def pos(self, p):
-        p = self._workframe * p   # apply frame
-        self.tcp_pos = p
-        _q = self.rob.Tcp.Rotation.Q
-        q = R(_q[3], _q[0], _q[1], _q[2])
-        p_m = p + (q * self.tool_pos_inv)
-        self.rob.Tcp.Base = (p_m.x, p_m.y, p_m.z)
+        self.pose = Pose(p, self.pose.rot)
 
 
     # axes property
@@ -155,12 +167,7 @@ class Robot(baserobot.Robot):
         self.rob.Axis5 = axes[4]
         self.rob.Axis6 = axes[5]
         # correct position
-        _p = self.rob.Tcp.Base
-        p = V(_p[0], _p[1], _p[2])
-        _q = self.rob.Tcp.Rotation.Q
-        q = R(_q[3], _q[0], _q[1], _q[2])
-        self.pos = p + (q * self.tool_pos)
-        self.rot = q * self.tool_rot
+        self.pose = self._frame_inv *  (self._toolpose * self._get_base_pose())
 
 
     # tool rotation shortcuts
@@ -366,43 +373,25 @@ class Robot(baserobot.Robot):
 
         # assign to robot
         self.rob.Tool.Base = (pos.x, pos.y, pos.z)
-        self.rob.Tool.Rotation.Q = (rot.x, rot.y, rot.z, rot.w)
+        self.rob.Tool.Rotation = FreeCAD.Rotation(rot.x, rot.y, rot.z, rot.w)
         self.rob.ToolBase.Base = (modelPos.x, modelPos.y, modelPos.z)
-        self.rob.ToolBase.Rotation.Q = (modelRot.x, modelRot.y, modelRot.z, modelRot.w)
+        self.rob.ToolBase.Rotation = FreeCAD.Rotation(modelRot.x, modelRot.y, modelRot.z, modelRot.w)
 
         # store for later use
-        tplace = self.rob.Tool
-        p = tplace.Base
-        self.tool_pos = V(p[0], p[1], p[2])
-        q = tplace.Rotation.Q
-        self.tool_rot = R(q[3], q[0], q[1], q[2])
-        #inverse
-        tplace_inv = self.rob.Tool.inverse()
-        pinv = tplace_inv.Base
-        self.tool_pos_inv = V(pinv[0], pinv[1], pinv[2])
-        qinv = tplace_inv.Rotation.Q
-        self.tool_rot_inv = R(qinv[3], qinv[0], qinv[1], qinv[2])
+        self._toolpose = Pose(pos, rot)
+        self._toolpose_inv = self._toolpose.inverse()
 
-        # update pos so tool end is new tcp
-        self.pos = self.pos
+        # update pose so tool end is new tcp
+        self.pose = self.pose
 
 
 
     def frame(self, pos, rot=R()):
         """Defines a work object frame (coordinate system)."""
-        # x = (origin - xpoint).normalized()
-        # y_ = (origin - ypoint).normalized()
-        # z = y_.cross(x).normalized()
-        # y = x.cross(z)
-        # m = euclid.Matrix4.new_rotate_triple_axis(x, y, z)
-        # # m.d, m.h, m.l = origin.x, origin.y, origin.z
-        self._workframe = Pose(pos, rot)
-        self._workframe_inv = self._workframe.inverse()
-        # # correct current state
-        # self. = self._workframe_inv * self.tcp_pos
-
-
-
+        pose_in_base_frame = self._frame * self._pose
+        self._frame = Pose(pos, rot)
+        self._frame_inv = self._frame.inverse()
+        self._pose = self._frame_inv * pose_in_base_frame
 
 
 

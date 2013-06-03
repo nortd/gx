@@ -31,6 +31,35 @@ __docformat__ = 'restructuredtext en'
 _appcontext = {}
 
 
+def _find_main(name, appsloc):
+    app_to_run = None
+    items = os.listdir(appsloc)
+    for item in items:
+        if item == name+'.py' and os.path.isfile(os.path.join(appsloc, item)):
+            print item
+            # got a match
+            if not app_to_run:
+                app_to_run = os.path.join(appsloc, item)
+            else:
+                print "WARN: multiple apps with this name"
+        elif item == name and os.path.isdir(os.path.join(appsloc, item)):
+            currentapploc = os.path.join(appsloc, item)
+            appitems = os.listdir(currentapploc)
+            if name+'.py' in appitems:
+                # got a match
+                if not app_to_run:
+                    app_to_run = os.path.join(currentapploc, name+'.py')
+                else:
+                    print "WARN: multiple apps with this name"  
+            elif 'main.py' in appitems:
+                # got a match
+                if not app_to_run:
+                    app_to_run = os.path.join(currentapploc, 'main.py')
+                else:
+                    print "WARN: multiple apps with this name"
+    return app_to_run
+
+
 def run(name):
     """Run an app from the apps folder.
 
@@ -44,56 +73,11 @@ def run(name):
     global _appcontext
     app_to_run = None
     thisloc = os.path.dirname(os.path.realpath(__file__))
-    appsloc = os.path.join(thisloc, 'apps')
-    items = os.listdir(appsloc)
-    for item in items:
-        if item == name+'.py' and os.path.isfile(os.path.join(appsloc, item)):
-            print item
-            # got a match
-            if not app_to_run:
-                app_to_run = os.path.join(appsloc, item)
-            else:
-                print "WARN: multiple apps with this name"
-        elif item == name and os.path.isdir(os.path.join(appsloc, item)):
-            currentapploc = os.path.join(appsloc, item)
-            appitems = os.listdir(currentapploc)
-            if name+'.py' in appitems:
-                # got a match
-                if not app_to_run:
-                    app_to_run = os.path.join(currentapploc, name+'.py')
-                else:
-                    print "WARN: multiple apps with this name"  
-            elif 'main.py' in appitems:
-                # got a match
-                if not app_to_run:
-                    app_to_run = os.path.join(currentapploc, 'main.py')
-                else:
-                    print "WARN: multiple apps with this name"
-    appsloc = os.path.join(thisloc, 'examples')
-    items = os.listdir(appsloc)
-    for item in items:
-        if item == name+'.py' and os.path.isfile(os.path.join(appsloc, item)):
-            print item
-            # got a match
-            if not app_to_run:
-                app_to_run = os.path.join(appsloc, item)
-            else:
-                print "WARN: multiple apps with this name"
-        elif item == name and os.path.isdir(os.path.join(appsloc, item)):
-            currentapploc = os.path.join(appsloc, item)
-            appitems = os.listdir(currentapploc)
-            if name+'.py' in appitems:
-                # got a match
-                if not app_to_run:
-                    app_to_run = os.path.join(currentapploc, name+'.py')
-                else:
-                    print "WARN: multiple apps with this name"  
-            elif 'main.py' in appitems:
-                # got a match
-                if not app_to_run:
-                    app_to_run = os.path.join(currentapploc, 'main.py')
-                else:
-                    print "WARN: multiple apps with this name"
+    app_to_run = _find_main(name, os.path.join(thisloc, 'apps'))
+    if not app_to_run:
+        app_to_run = _find_main(name, os.path.join(thisloc, 'examples'))
+    if not app_to_run:
+        app_to_run = _find_main(name, os.path.join(thisloc, 'tests'))
     if app_to_run:
         print "INFO: running " + app_to_run
         globals_other = {}

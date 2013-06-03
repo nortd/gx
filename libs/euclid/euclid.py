@@ -1304,6 +1304,19 @@ class Quaternion:
         return 'Quaternion(real=%.2f, imag=<%.2f, %.2f, %.2f>)' % \
             (self.w, self.x, self.y, self.z)
 
+    def __eq__(self, other):
+        """Check Equality of Quaternions.
+
+        Quaternions can represent the same rotion with
+        wildly different values. For this reason I use the
+        following trick: If the absolute of their dot product
+        is close to 1 they represent the same rotation.
+        """
+        if isinstance(other, Quaternion):
+            return 0.999999 < abs(self.dot(other)) < 1.0000001
+        else:
+            return False
+
     def __mul__(self, other):
         if isinstance(other, Quaternion):
             Ax = self.x
@@ -1391,6 +1404,13 @@ class Quaternion:
         self.y = 0
         self.z = 0
         return self
+
+    def dot(self, other):
+        assert isinstance(other, Quaternion)
+        return self.w * other.w + \
+               self.x * other.x + \
+               self.y * other.y + \
+               self.z * other.z
 
     def rotate_axis(self, angle, axis):
         self *= Quaternion.new_rotate_axis(angle, axis)
