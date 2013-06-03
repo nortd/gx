@@ -186,7 +186,8 @@ class Path(object):
         massCenterPos: Translation from robot flange to 
                        tool center of mass.
         """
-        defprops = (pos, rot, mass, massCenterPos, modelFile, modelPos, modelRot)
+        defprops = (Pose(pos, rot), mass, Pose(massCenterPos), 
+                    modelFile, Pose(modelPos, modelRot))
         varname = self.match_or_add(self.tooldefs, defprops, 'gxtool')
         # command = ('tool', varname)
         # self.commands.append(command)

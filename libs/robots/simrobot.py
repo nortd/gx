@@ -52,8 +52,6 @@ class Robot(baserobot.Robot):
         self.rob.RobotKinematicFile = defs['csv']
 
         # tool
-        self.tcp_pos = euclid.Point3()          # actual TCP pos
-        self.tcp_rot = euclid.Quaternion()      # actual TCP rot
         self.tool_pos = euclid.Vector3()
         self.tool_rot = euclid.Quaternion()
         self.tool_pos_inv = euclid.Vector3()
@@ -101,26 +99,32 @@ class Robot(baserobot.Robot):
     # rot properties
     @property
     def rot(self):
-        return self.tcp_rot  # TODO: invalid after setting axes
+        _q = self.rob.Tcp.Rotation.Q
+        q = R(_q[3], _q[0], _q[1], _q[2])
+        return q * self.tool_rot
     @rot.setter
     def rot(self, q):
-        self.tcp_rot = q
+        pos_prev = self.pos
         q_m = q * self.tool_rot_inv
         self.rob.Tcp.Rotation = FreeCAD.Rotation(q_m.x, q_m.y, q_m.z, q_m.w)
         # correct pos
-        self.pos = self.tcp_pos
+        # self.pos = pos_prev
 
 
     # pos property
     @property
     def pos(self):
-        return self.tcp_pos  # TODO: invalid after setting axes
+        _p = self.rob.Tcp.Base
+        p = V(_p.x, _p.y, _p.z)
+        _q = self.rob.Tcp.Rotation.Q
+        q = R(_q[3], _q[0], _q[1], _q[2])
+        return p + (q * self.tool_pos)
+
     @pos.setter
     def pos(self, p):
         if isinstance(p, P) or isinstance(p, V):
             if not isinstance(p, P):  #relative
-                p += self.tcp_pos
-            self.tcp_pos = p
+                p += self.pos
             _q = self.rob.Tcp.Rotation.Q
             q = euclid.Quaternion(_q[3], _q[0], _q[1], _q[2])
             p_m = p + (q * self.tool_pos_inv)
@@ -144,7 +148,6 @@ class Robot(baserobot.Robot):
         self.rob.Axis4 = axes[3]
         self.rob.Axis5 = axes[4]
         self.rob.Axis6 = axes[5]
-        # TODO: update self.tcp_pos, self.tcp_rot
 
 
     # tool rotation shortcuts
