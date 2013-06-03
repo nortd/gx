@@ -83,15 +83,15 @@ class Pose(object):
             rot = self.rot * other.rot
             return Pose(pos, rot)
         elif isinstance(other, euclid.Vector3):
-            # return vector transformed by this pose
-            # Note: vectors are not translated, only rotated
-            return self.rot * other
-        elif isinstance(other, euclid.Point3):
             # return point transformed by this pose
-            return self.rot * (other + self.pos)
+            np = self.rot * (self.pos + other)
+            return other.__class__(np.x, np.y, np.z)
+        # elif isinstance(other, euclid.Vector3):
+        #     # return vector transformed by this pose
+        #     # Note: vectors are not translated, only rotated
+        #     return self.rot * other
         else: 
             assert isinstance(other, Pose) or \
-                   isinstance(other, euclid.Point3) or \
                    isinstance(other, euclid.Vector3)
 
 
@@ -131,7 +131,7 @@ class Pose(object):
     @classmethod
     def new_interpolate(cls, pose1, pose2, t):
         assert isinstance(pose1, Pose) and isinstance(pose2, Pose)
-        pos = euclid.Point3.new_interpolate(pose1.pos, pose2.pos, t)
+        pos = euclid.Vector3.new_interpolate(pose1.pos, pose2.pos, t)
         rot = euclid.Quaternion.new_interpolate(pose1.rot, pose2.rot, t)
         return cls(pos, rot)
 

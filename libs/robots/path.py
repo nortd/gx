@@ -139,17 +139,17 @@ class Path(object):
         with open(tooldefjson) as data_file:
             data = json.load(data_file)
 
-        pos = V()
+        pos = P()
         rot = R()
         mass = 0.001
-        massCenterPos = V()
-        modelPos = V()
+        massCenterPos = P()
+        modelPos = P()
         modelRot = R()
 
         # tcp translation (in relation to flange)
         p = data.get('pos')
         if p:
-            pos = V(p[0], p[1], p[2])
+            pos = P(p[0], p[1], p[2])
         # tcp rotation (in relation to flange)
         r = data.get('rot')
         if r:
@@ -162,12 +162,12 @@ class Path(object):
         # mass translation (in relation to flange)
         p = data.get('massCenterPos')
         if p:
-            modelPos = V(p[0], p[1], p[2])
+            modelPos = P(p[0], p[1], p[2])
         
         # tool translation (in relation to flange)
         p = data.get('modelPos')
         if p:
-            modelPos = V(p[0], p[1], p[2])
+            modelPos = P(p[0], p[1], p[2])
         # tool rotation (in relation to flange)
         r = data.get('modelRot')
         if r:
@@ -176,8 +176,8 @@ class Path(object):
         self.toolchange(pos, rot, mass, massCenterPos, modelFile, modelPos, modelRot)
 
 
-    def toolchange(self, pos=V(), rot=R(), mass=0.001, massCenterPos=V(), 
-             modelFile=None, modelPos=V(), modelRot=R()):
+    def toolchange(self, pos=P(), rot=R(), mass=0.001, massCenterPos=P(), 
+             modelFile=None, modelPos=P(), modelRot=R()):
         """Change the tool of the robot.
 
         pos,rot: Tool frame transform from robot flange

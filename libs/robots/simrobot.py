@@ -13,6 +13,7 @@ import json
 import time
 from gx.libs import form
 from gx.libs.robots import baserobot
+from gx.libs.euclid import euclid
 from gx.libs.vectormath import *
 
 try:
@@ -60,6 +61,7 @@ class Robot(baserobot.Robot):
 
         # work frame
         self._workframe = Pose(V(), R())
+        self._workframe_inv = Pose(V(), R())
 
         # trajectory
         self._path = None
@@ -78,6 +80,10 @@ class Robot(baserobot.Robot):
         # animations, this is robot animation chain
         self.animations = []
 
+        # some positional presets
+        self.FLOOR = V(1000,0,0)
+        self.TABLE = V(800,0,800)
+
         # some rotational presets
         self.UP = R()
         self.FRONT = aR(pi/2, V(0,1,0))
@@ -88,7 +94,7 @@ class Robot(baserobot.Robot):
         # init pose
         self.axes = (0,0,0,0,0,0)
         _p = self.rob.Tcp.Base
-        self.pos = P(_p.x, _p.y, _p.z)
+        self.pos = V(_p.x, _p.y, _p.z)
         # self.toolrotate_to(0, math.pi/2.0, 0)
         self.rot = self.FRONT
 
@@ -113,19 +119,15 @@ class Robot(baserobot.Robot):
     # pos property
     @property
     def pos(self):
-        return self.tcp_pos
+        return self._workframe_inv * self.tcp_pos
     @pos.setter
     def pos(self, p):
-        if isinstance(p, P) or isinstance(p, V):
-            if not isinstance(p, P):  #relative
-                p += self.tcp_pos
-            self.tcp_pos = p
-            _q = self.rob.Tcp.Rotation.Q
-            q = R(_q[3], _q[0], _q[1], _q[2])
-            p_m = p + (q * self.tool_pos_inv)
-            self.rob.Tcp.Base = (p_m.x, p_m.y, p_m.z)
-        else:
-            print "ERROR: invalid type"
+        p = self._workframe * p   # apply frame
+        self.tcp_pos = p
+        _q = self.rob.Tcp.Rotation.Q
+        q = R(_q[3], _q[0], _q[1], _q[2])
+        p_m = p + (q * self.tool_pos_inv)
+        self.rob.Tcp.Base = (p_m.x, p_m.y, p_m.z)
 
 
     # axes property
@@ -145,7 +147,7 @@ class Robot(baserobot.Robot):
         self.rob.Axis6 = axes[5]
         # correct position
         _p = self.rob.Tcp.Base
-        p = P(_p[0], _p[1], _p[2])
+        p = V(_p[0], _p[1], _p[2])
         _q = self.rob.Tcp.Rotation.Q
         q = R(_q[3], _q[0], _q[1], _q[2])
         self.pos = p + (q * self.tool_pos)
@@ -382,22 +384,20 @@ class Robot(baserobot.Robot):
 
 
 
-    def frame(self, origin, xpoint, ypoint):
-        """Defines a work object frame (coordinate system).
+    def frame(self, pos, rot=R()):
+        """Defines a work object frame (coordinate system)."""
+        # x = (origin - xpoint).normalized()
+        # y_ = (origin - ypoint).normalized()
+        # z = y_.cross(x).normalized()
+        # y = x.cross(z)
+        # m = euclid.Matrix4.new_rotate_triple_axis(x, y, z)
+        # # m.d, m.h, m.l = origin.x, origin.y, origin.z
+        self._workframe = Pose(pos, rot)
+        self._workframe_inv = self._workframe.inverse()
+        # # correct current state
+        # self. = self._workframe_inv * self.tcp_pos
 
-        TODO: workframe is not used yet!
 
-        Creates a work object pose in origin with the x-axis pointing
-        from origin to xpoint. Then ypoint is used to determin the 
-        y-direction (only). The z-direction follows from the right-hand-rule.
-        """
-        x = (origin - xpoint).normalized()
-        z = ypoint.cross(z).normalized()
-        y = x.cross(z)
-        m = euclis.Matrix4.new_rotate_triple_axis(x, y, z)
-        # m.d, m.h, m.l = origin.x, origin.y, origin.z
-        self._workframe.pos = origin
-        self._workframe.rot = m.get_quaternion()
 
 
 
