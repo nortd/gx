@@ -13,7 +13,6 @@ import json
 import time
 from gx.libs import form
 from gx.libs.robots import baserobot
-from gx.libs.euclid import euclid
 from gx.libs.vectormath import *
 
 try:
@@ -52,12 +51,12 @@ class Robot(baserobot.Robot):
         self.rob.RobotKinematicFile = defs['csv']
 
         # tool
-        self.tcp_pos = euclid.Point3()          # actual TCP pos
-        self.tcp_rot = euclid.Quaternion()      # actual TCP rot
-        self.tool_pos = euclid.Vector3()
-        self.tool_rot = euclid.Quaternion()
-        self.tool_pos_inv = euclid.Vector3()
-        self.tool_rot_inv = euclid.Quaternion()
+        self.tcp_pos = V()          # actual TCP pos
+        self.tcp_rot = R()          # actual TCP rot
+        self.tool_pos = V()
+        self.tool_rot = R()
+        self.tool_pos_inv = V()
+        self.tool_rot_inv = R()
 
         # work frame
         self._workframe = Pose(V(), R())
@@ -122,7 +121,7 @@ class Robot(baserobot.Robot):
                 p += self.tcp_pos
             self.tcp_pos = p
             _q = self.rob.Tcp.Rotation.Q
-            q = euclid.Quaternion(_q[3], _q[0], _q[1], _q[2])
+            q = R(_q[3], _q[0], _q[1], _q[2])
             p_m = p + (q * self.tool_pos_inv)
             self.rob.Tcp.Base = (p_m.x, p_m.y, p_m.z)
         else:
@@ -161,9 +160,9 @@ class Robot(baserobot.Robot):
         ang_y: angle around y-axis in radians
         ang_z: angle around z-axis in radians
         """
-        qx = aR(ang_x, euclid.Vector3(1, 0, 0))
-        qy = aR(ang_y, euclid.Vector3(0, 1, 0))
-        qz = aR(ang_z, euclid.Vector3(0, 0, 1))
+        qx = aR(ang_x, V(1, 0, 0))
+        qy = aR(ang_y, V(0, 1, 0))
+        qz = aR(ang_z, V(0, 0, 1))
         self.rot = qx * qy * qz * self.rot
 
 
@@ -174,9 +173,9 @@ class Robot(baserobot.Robot):
         ang_y: angle around y-axis in radians
         ang_z: angle around z-axis in radians
         """
-        qx = euclid.Quaternion.new_rotate_axis(ang_x, euclid.Vector3(1, 0, 0))
-        qy = euclid.Quaternion.new_rotate_axis(ang_y, euclid.Vector3(0, 1, 0))
-        qz = euclid.Quaternion.new_rotate_axis(ang_z, euclid.Vector3(0, 0, 1))
+        qx = aR(ang_x, V(1, 0, 0))
+        qy = aR(ang_y, V(0, 1, 0))
+        qz = aR(ang_z, V(0, 0, 1))
         self.rot = qx * qy * qz
 
 
@@ -265,9 +264,9 @@ class Robot(baserobot.Robot):
         startTcp = self.rob.Tcp = FreeCAD.Placement(FreeCAD.Vector(1177.93, 0.0, 430.462), FreeCAD.Rotation(0,1,0,0))
         t.insertWaypoints(fcRobot.Waypoint(startTcp, "LIN","Pt",4000))
         for i in range(7):
-            # rot = euclid.Quaternion.new_rotate_axis(ang_x*TO_RAD, euclid.Vector3(1, 0, 0))
-            qx = euclid.Quaternion.new_rotate_axis(-90*TO_RAD, euclid.Vector3(1, 0, 0))
-            qy = euclid.Quaternion.new_rotate_axis(i*20*TO_RAD, euclid.Vector3(0, 1, 0))
+            # rot = aR(ang_x*TO_RAD, V(1, 0, 0))
+            qx = aR(-90*TO_RAD, V(1, 0, 0))
+            qy = aR(i*20*TO_RAD, V(0, 1, 0))
             rot = qx*qy
             # FreeCAD.Rotation (-0.479426,-0,-0,0.877583)
             fcOrient = FreeCAD.Rotation(rot.x, rot.y, rot.z, rot.w)
