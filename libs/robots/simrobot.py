@@ -103,6 +103,15 @@ class Robot(baserobot.Robot):
     # ###########################################
     # Posing
 
+    @property
+    def pose(self, pose):
+        """Pose the tool by setting position and rotation."""
+        self.rot = pose.rot
+        self.pos = pose.pos
+    @pose.setter
+    def pose(self):
+        return Pose(self.pos, self.rot)
+
     # rot properties
     @property
     def rot(self):
@@ -180,11 +189,6 @@ class Robot(baserobot.Robot):
         qz = aR(ang_z, V(0, 0, 1))
         self.rot = qx * qy * qz
 
-
-    def pose(self, pose):
-        """Pose the tool by setting position and rotation."""
-        self.rot = pose.rot
-        self.pos = pose.pos
 
 
    
