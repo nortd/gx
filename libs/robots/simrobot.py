@@ -114,15 +114,10 @@ class Robot(baserobot.Robot):
 
     def _set_base_pose(self, pose):
         """Take TCP and set flange pose in base frame."""
-        # flange = (self._frame * self._toolpose) * pose
-        # flange = (pose * self._toolpose_inv) * self._frame
         flange =  (self._frame * pose) * self._toolpose_inv
-        # pose_in_base = self._frame_inv * pose
-        # print ">>", pose_in_base
-        # flange = self._toolpose_inv * pose_in_base
-        self.rob.Tcp.Base = (flange.pos.x, flange.pos.y, flange.pos.z)
         self.rob.Tcp.Rotation = FreeCAD.Rotation(flange.rot.x, flange.rot.y, 
                                                  flange.rot.z, flange.rot.w)
+        self.rob.Tcp.Base = (flange.pos.x, flange.pos.y, flange.pos.z)
 
     def _get_base_pose(self):
         """Get the flange pose in base frame."""
