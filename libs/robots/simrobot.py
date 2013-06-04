@@ -115,9 +115,9 @@ class Robot(baserobot.Robot):
     def _set_base_pose(self, pose):
         """Take TCP and set flange pose in base frame."""
         flange =  (self._frame * pose) * self._toolpose_inv
+        self.rob.Tcp.Base = (flange.pos.x, flange.pos.y, flange.pos.z)
         self.rob.Tcp.Rotation = FreeCAD.Rotation(flange.rot.x, flange.rot.y, 
                                                  flange.rot.z, flange.rot.w)
-        self.rob.Tcp.Base = (flange.pos.x, flange.pos.y, flange.pos.z)
 
     def _get_base_pose(self):
         """Get the flange pose in base frame."""
@@ -255,8 +255,9 @@ class Robot(baserobot.Robot):
         doc = FreeCAD.activeDocument()
         traj = doc.addObject("Robot::TrajectoryObject","Trajectory").Trajectory
         for target in self._path:
-            pos = target[0].pos
-            rot = target[0].rot
+            pose = self._frame * target[0]
+            pos = pose.pos
+            rot = pose.rot
             velocity = target[2]
             _pose = FreeCAD.Placement(FreeCAD.Vector(pos.x, pos.y, pos.z), 
                                       FreeCAD.Rotation(rot.x, rot.y, rot.z, rot.w))
@@ -380,8 +381,22 @@ class Robot(baserobot.Robot):
         self.pose = self.pose
 
 
+    def frame(self, origin, xpoint, ypoint):
+        ### calculate pose
+        vx = (xpoint - origin).normalized()
+        vy_ = (ypoint - origin).normalized()
+        vz = vx.cross(vy_).normalized()
+        vy = vz.cross(vx).normalized()
+        m = euclid.Matrix4.new_rotate_triple_axis(vx, vy, vz)
+        pos = origin
+        rot = m.get_quaternion()
+        self.framepose(pos, rot)
+        # visualize
+        form.line(origin, origin + (1000*vx))
+        form.line(origin, origin + (1000*vy))
+        form.line(origin, origin + (1000*vz))
 
-    def frame(self, pos, rot=R()):
+    def framepose(self, pos, rot=R()):
         """Defines a work object frame (coordinate system)."""
         pose_in_base_frame = self._frame * self._pose
         self._frame = Pose(pos, rot)
@@ -445,7 +460,7 @@ class Robot(baserobot.Robot):
             # new motion condition
             # FreeCAD.Console.PrintMessage('*')
             self.animations[0][3] = time.time()  # set state
-            self.pose(last_pose)
+            self.pose = last_pose
         else:
             # continue motion
             # FreeCAD.Console.PrintMessage('+')
@@ -461,7 +476,7 @@ class Robot(baserobot.Robot):
                 self.animations.pop(0)
 
             # linear and SLERP interpolation
-            self.pose(Pose.new_interpolate(last_pose, pose, t_pct))
+            self.pose = Pose.new_interpolate(last_pose, pose, t_pct)
 
             # this is how to manually compensate for the tool trans
             # r.rob.Tcp = r.path.Waypoints[0].Pos.multiply(r.rob.Tool.inverse())
