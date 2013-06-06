@@ -3,7 +3,7 @@
     "rot": [1, 0, 0, 0],
     "modelPos": [0, 0, 0],
     "modelRot": [1, 0, 1, 0],
-    "mass": 5.0,
-    "massCenterPos": [0, 0, 0],
+    "mass": 4.5,
+    "massCenterPos": [0, 0, 150],
     "comment": "formats are [x,y,z] and [w,x,y,z]"
 }

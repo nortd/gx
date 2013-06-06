@@ -150,7 +150,7 @@ class Path(object):
         # mass translation (in relation to flange)
         p = data.get('massCenterPos')
         if p:
-            modelPos = P(p[0], p[1], p[2])
+            massCenterPos = P(p[0], p[1], p[2])
         
         # tool translation (in relation to flange)
         p = data.get('modelPos')
@@ -164,7 +164,7 @@ class Path(object):
         self.toolchange(pos, rot, mass, massCenterPos, modelFile, modelPos, modelRot)
 
 
-    def toolchange(self, pos=P(), rot=R(), mass=0.001, massCenterPos=P(), 
+    def toolchange(self, pos=P(), rot=R(), mass=0.001, massCenterPos=P(0,0,0.001), 
              modelFile=None, modelPos=P(), modelRot=R()):
         """Change the tool of the robot.
 

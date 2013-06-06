@@ -1300,6 +1300,9 @@ class Quaternion:
 
     copy = __copy__
 
+    def __iter__(self):
+        return iter((self.w, self.x, self.y, self.z))
+
     def __repr__(self):
         return 'Quaternion(real=%.2f, imag=<%.2f, %.2f, %.2f>)' % \
             (self.w, self.x, self.y, self.z)

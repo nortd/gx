@@ -131,8 +131,8 @@ class Robot(baserobot.Robot):
         code.append("PROC Main()")
         code.extend(self.main_head[robot-1])
         code.extend(self.main[robot-1])
-        code.append("MoveAbsJ [[0,0,0,0,0,0],[0,0,0,0,0,0]], %s, %s, %s \Wobj:=%s;" % 
-                     (self.currentSpeed, self.currentZone, self.currentTool, self.currentFrame))
+        # code.append("MoveAbsJ [[0,0,0,0,0,0],[0,0,0,0,0,0]], %s, %s, %s \Wobj:=%s;" % 
+        #              (self.currentSpeed, self.currentZone, self.currentTool, self.currentFrame))
         code.append("ENDPROC")
         code.append("ENDMODULE")
         return '\n'.join(code)
@@ -203,14 +203,14 @@ class Robot(baserobot.Robot):
             elif typ == "axistarget":
                 axes = command[1]
                 dur = command[2]
-                self.move_joint_abs(self, axes, None, dur, robot)
+                self.move_joint_abs(axes, None, dur, robot)
             elif typ == "output":
                 signal = command[1]
                 state = command[2]
                 delay = command[3]
                 wait = command[4]
                 sync = command[5]
-                digital_out(signal, state, delay, wait, sync, robot)
+                self.digital_out(signal, state, delay, wait, sync, robot)
             elif typ == "input":
                 pass
             elif typ == "tool":
@@ -431,7 +431,7 @@ class Robot(baserobot.Robot):
     def _add_robtarget_var(self, varname, pos, orient, conf, extaxes, robot=1):
         """Define a robtarget for moves."""
         vars_ = self.vars[robot-1]
-        robtarget = [pos, orient, conf, extaxes]
+        robtarget = [list(pos), list(orient), conf, extaxes]
         vars_.append("CONST robtarget %s := %s;" % (varname, robtarget))
 
 
@@ -457,7 +457,7 @@ class Robot(baserobot.Robot):
         PERS tooldata tool0 := [TRUE, [[0,0,0], [1,0,0,0]], [0.001,[0,0,0.001],[1,0,0,0],0,0,0]];
         """
         vars_ = self.vars[robot-1]
-        tool = [holding,[pos,rot],[mass,massCenterPos,massCenterRot,0,0,0]]
+        tool = [holding,[list(pos),list(rot)],[mass,list(massCenterPos),list(massCenterRot),0,0,0]]
         vars_.append("PERS tooldata %s := %s;" % (varname, tool))
 
 
@@ -481,7 +481,9 @@ class Robot(baserobot.Robot):
         PERS wobjdata wobj0 := [FALSE, TRUE, "", [[0, 0, 0], [1, 0, 0,0]], [[0, 0, 0], [1, 0, 0 ,0]]];
         """
         vars_ = self.vars[robot-1]
-        frame = [holdingWork,fixed,unitExt,[userFramePos,userFrameOrient],[workFramePos,workFrameOrient]]
+        frame = '[%s, %s, "%s", %s, %s]' % (holdingWork,fixed,unitExt,
+                                            [list(userFramePos),list(userFrameOrient)],
+                                            [list(workFramePos),list(workFrameOrient)])
         vars_.append("PERS wobjdata %s := %s;" % (varname, frame))
 
 

@@ -352,7 +352,7 @@ class Robot(baserobot.Robot):
         # mass translation (in relation to flange)
         p = data.get('massCenterPos')
         if p:
-            modelPos = V(p[0], p[1], p[2])
+            massCenterPos = V(p[0], p[1], p[2])
         
         # tool translation (in relation to flange)
         p = data.get('modelPos')
