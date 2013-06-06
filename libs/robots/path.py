@@ -1,4 +1,6 @@
 
+import os
+import json
 from gx.libs.vectormath import *
 from gx.libs.euclid import euclid
 
@@ -12,11 +14,6 @@ class Path(object):
     """
     def __init__(self):
         self.commands = []
-        self.inter_curr = "LIN"  # LIN, PTP
-        self.tool_curr = None
-        self.frame_curr = None
-        self.speed_curr = None
-        self.zone_curr = None
 
         # counter for unique name generation
         self.counter = 0
@@ -38,7 +35,7 @@ class Path(object):
         self.zone(0.3)  # add default
 
 
-    def target(self, pos, rot, dur=None, signal=None, state=1):
+    def target(self, pos, rot, inter='LIN', dur=None, signal=None, state=1):
         """Add a targe to the path.
 
         A target is primarily defined by a location and rotation of the
@@ -46,32 +43,19 @@ class Path(object):
         current state: path interpolation, tool settings, work frame
         transform, speed settings, zone settings.
 
+        inter: determines how the path is calculated between targets.
+        Setting this to 'LIN' makes the path linear which is appropriate
+        for most tool action. The other kind is 'PTP' which does the
+        interpolation based on shortest joint movement. This is typically
+        used for repositioning the tool quickly. Joint interpolation also 
+        often works when a straight line would otherwise go through an area 
+        where the robot can't reach.
         dur: Duration of the move (s). This overwrites any speed settings.
         signal: Name of the signal to switch at this target point.
         state: Signal state: On (1), off (0)
         """
-        command = ('target', pos, rot, dur, self.inter_curr, 
-                   self.tool_curr, self.frame_curr, self.speed_curr, self.zone_curr,
-                   signal, state)
+        command = ('target', pos, rot, inter, dur, signal, state)
         self.commands.append(command)
-
-
-    def inter(kind):
-        """Change target interpolation.
-
-        This determines how the path is calculated between targets.
-        Setting this to 'LIN' makes the path linear which is appropriate
-        for most tool action. The other kind is 'PTP' which does the
-        interpolation based on shortest joint movement. This is typically
-        used for repositioning the tool quickly. 
-
-        Joint interpolation also often works when a straight line would 
-        otherwise go through an area where the robot can't reach.
-        """
-        if kind in ('LIN', 'PTP'):
-            self.inter_curr = kind
-        else:
-            raise Exception("invalid interpolation")
 
 
     def axistarget(self, axes=None, dur=None):
@@ -89,17 +73,21 @@ class Path(object):
             raise Exception("invalid axes length")
 
 
-    def gpio(self, name, state=1, delay=0, wait=0, sync=False):
-        """Change state of a gpio signal.
+    def output(self, signal, state=1, delay=0, wait=0, sync=False):
+        """Change state of an output signal.
 
-        name: Name of the signal.
+        signal: Name of the signal.
         state: On (1), off (0), or pulse (3)
         delay: in seconds before setting the signal
         wait: in seconds after setting the signal
         sync: wait until the signal is physically set
         """
-        command = ('gpio', name, state, delay, wait, sync)
-        self.commands.append(command)        
+        command = ('output', signal, state, delay, wait, sync)
+        self.commands.append(command)    
+
+
+    def input():
+        print "not implemented yet"    
 
 
     def tool(self, name, search_path=None):
@@ -108,7 +96,7 @@ class Path(object):
         This function adds a tool to the robot based on a tool definition.
         A tool definition is a json file specifying tcp pose, mass, center of
         mass pos, model pose. A model file (.wrl) of the same name is used too.
-        name: Corresponds to tool_name.json and tool_name.wrl.
+        name: Corresponds to name.json and name.wrl.
         search_path: The directory to look for tool. By default this function 
                      looks for the tool in libs/robots/tools
 
@@ -125,8 +113,8 @@ class Path(object):
         if not search_path:
             thislocation = os.path.dirname(os.path.realpath(__file__))
             search_path = os.path.join(thislocation, 'tools')
-        tooldefjson = os.path.join(search_path, tool_name + '.json')
-        tooldefwrl = os.path.join(search_path, tool_name + '.wrl')
+        tooldefjson = os.path.join(search_path, name + '.json')
+        tooldefwrl = os.path.join(search_path, name + '.wrl')
         if not os.path.exists(tooldefjson):
             print("ERROR: tool def json file not found: %s" % (tooldefjson))
             return
@@ -189,17 +177,15 @@ class Path(object):
         defprops = (Pose(pos, rot), mass, Pose(massCenterPos), 
                     modelFile, Pose(modelPos, modelRot))
         varname = self.match_or_add(self.tooldefs, defprops, 'gxtool')
-        # command = ('tool', varname)
-        # self.commands.append(command)
-        self.tool_curr = varname
+        command = ('tool', varname)
+        self.commands.append(command)
 
 
-
-    def frame(self, origin=P(), xpoint=P(1,0,0), ypoint=P(0,1,0)):
+    def frame(self, origin=P(), xpoint=P(1000,0,0), ypoint=P(0,1000,0)):
         """Change the work object frame (coordinate system).
 
         This is a transform on the base frame (which is a transform on 
-        the world frame). A common usecase is to set the work frame to 
+        the world frame). A common use case is to set the work frame to 
         a fixed point of the work piece. Then write the program in 
         reference to the work piece.
 
@@ -209,20 +195,18 @@ class Path(object):
         z-direction follows from the right-hand-rule.
         """
         ### calculate pose
-        x = (origin - xpoint).normalized()
-        y_ = (origin - ypoint).normalized()
-        z = y_.cross(x).normalized()
-        y = x.cross(z)
-        m = euclid.Matrix4.new_rotate_triple_axis(x, y, z)
-        # m.d, m.h, m.l = origin.x, origin.y, origin.z
+        vx = (xpoint - origin).normalized()
+        vy_ = (ypoint - origin).normalized()
+        vz = vx.cross(vy_).normalized()
+        vy = vz.cross(vx).normalized()
+        m = euclid.Matrix4.new_rotate_triple_axis(vx, vy, vz)
         pos = origin
         rot = m.get_quaternion()
         ### correlate with framedefs
-        defprops = (pos, rot)
+        defprops = (Pose(pos, rot),)
         varname = self.match_or_add(self.framedefs, defprops, 'gxframe')
-        # command = ('frame', varname)
-        # self.commands.append(command)
-        self.frame_curr = varname
+        command = ('frame', varname)
+        self.commands.append(command)
 
 
     def speed(self, lin=100, rot=500):
@@ -233,9 +217,8 @@ class Path(object):
         """
         defprops = (lin, rot)
         varname = self.match_or_add(self.speeddefs, defprops, 'gxspeed')
-        # command = ('speed', varname)
-        # self.commands.append(command)
-        self.speed_curr = varname
+        command = ('speed', varname)
+        self.commands.append(command)
 
 
     def zone(self, radius):
@@ -249,9 +232,8 @@ class Path(object):
         """
         defprops = (radius,)
         varname = self.match_or_add(self.zonedefs, defprops, 'gxzone')
-        # command = ('zone', varname)
-        # self.commands.append(command)
-        self.zone_curr = varname
+        command = ('zone', varname)
+        self.commands.append(command)
 
 
     def match_or_add(self, defdict, value, prefix='gxvar'):
@@ -262,7 +244,7 @@ class Path(object):
         matchkey = ''.join(matchkey)
 
         if defdict[0].has_key(matchkey):
-            namekey = defdict[0][0]
+            namekey = defdict[0][matchkey][0]
             return namekey
         else:
             # add entry

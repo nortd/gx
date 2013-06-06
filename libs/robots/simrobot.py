@@ -60,6 +60,8 @@ class Robot(baserobot.Robot):
 
         # trajectory
         self._path = None
+        self.linspeed_curr = None
+        self.rotspeed_curr = None
 
         # change Workbench
         # if hasattr(FreeCAD, 'Gui'):
@@ -89,12 +91,12 @@ class Robot(baserobot.Robot):
         self.RIGHT = self.FRONT * aR(pi/2.000001, V(1,0,0))
 
         # init pose
-        # self.axes = (0,0,0,0,0,0)
-        # _p = self.rob.Tcp.Base
-        # self.pos = V(_p.x, _p.y, _p.z)
-        # # self.toolrotate_to(0, math.pi/2.0, 0)
-        # self.rot = self.FRONT
-        self.pose = Pose(self.FLOOR, self.DOWN)
+        self.axes = (0,0,0,0,0,0)
+        _p = self.rob.Tcp.Base
+        self.pos = V(_p.x, _p.y, _p.z)
+        # self.toolrotate_to(0, math.pi/2.0, 0)
+        self.rot = self.FRONT
+        # self.pose = Pose(self.FLOOR, self.DOWN)
 
 
 
@@ -198,44 +200,59 @@ class Robot(baserobot.Robot):
     # Trajectory
 
     def path(self, path):
-        """Set path of the robot."""
+        """Set path of the robot.
+
+        Each command in the path list can be one of the following:
+        target: inverse kinematics move
+        axistarget: forward kinematics move
+        output: set gpio output
+        input: read gpio input
+        tool: setup an end-effector
+        frame: setup a work object frame
+        speed: linear and rotational speed settings
+        zone: target flyby settings
+        """
         self._path = []  # reset
         for command in path.commands:
             typ = command[0]
             if typ == "target":
                 pos = command[1]
                 rot = command[2]
-                dur = command[3]
-                # inter = command[4]
-                # tool = command[5]
-                # frame = command[6]
-                speed = command[7]
-                # zone = command[8]
-                # signal = command[9]
-                # state = command[10]
-                # tooldata = path.gettool(tool)
-                # framedata = path.getframe(frame)
-                speeddata = path.getspeed(speed)
-                # zonedata = path.getzone(zone)
-                linspeed = speeddata[0]
-                rotspeed = speeddata[1]
-                # finally add the data we need
-                # other data is not used yet but can be in future
-                self._path.append((Pose(pos,rot), dur, linspeed, rotspeed))
+                inter = command[3]
+                dur = command[4]
+                self._path.append(('target', Pose(pos,rot), dur, 
+                                  self.linspeed_curr, self.rotspeed_curr))
             elif typ == "axistarget":
                 # axes = command[1]
                 # dur = command[2]
-                # speed = command[3]
-                # speeddata = path.getspeed(speed)
-                # rotspeed = speeddata[1]
                 # self._path.append(axes, dur, rotspeed)
                 pass
-            elif typ == "gpio":
-                # name = command[1]
+            elif typ == "output":
+                # signal = command[1]
                 # state = command[2]
                 # delay = command[3]
                 # wait = command[4]
                 # sync = command[5]
+                pass
+            elif typ == "input":
+                pass
+            elif typ == "tool":
+                toolname = command[1]
+                tooldata = path.gettool(toolname)
+                # (Pose(pos, rot), mass, Pose(massCenterPos), modelFile, Pose(modelPos, modelRot))
+                self._path.append(('tool',) + tooldata)
+            elif typ == "frame":
+                frame = command[1]
+                framedata = path.getframe(frame)
+                # (Pose(pos, rot),)
+                self._path.append(('frame',) + framedata)
+            elif typ == "speed":
+                speed = command[1]
+                speeddata = path.getspeed(speed)
+                self.linspeed_curr = speeddata[0]
+                self.rotspeed_curr = speeddata[1]
+                pass
+            elif typ == "zone":
                 pass
             else:
                 raise Exception("invalid command type")
@@ -254,37 +271,21 @@ class Robot(baserobot.Robot):
         """
         doc = FreeCAD.activeDocument()
         traj = doc.addObject("Robot::TrajectoryObject","Trajectory").Trajectory
+        frame_curr = Pose()
         for target in self._path:
-            pose = self._frame * target[0]
-            pos = pose.pos
-            rot = pose.rot
-            velocity = target[2]
-            _pose = FreeCAD.Placement(FreeCAD.Vector(pos.x, pos.y, pos.z), 
-                                      FreeCAD.Rotation(rot.x, rot.y, rot.z, rot.w))
-            wp = fcRobot.Waypoint(_pose, "LIN", "Pt", velocity, False)
-            traj.insertWaypoints(wp)
+            command = target[0]
+            if command == 'target':
+                pose = frame_curr * target[1]
+                pos = pose.pos
+                rot = pose.rot
+                velocity = target[3]
+                _pose = FreeCAD.Placement(FreeCAD.Vector(pos.x, pos.y, pos.z), 
+                                          FreeCAD.Rotation(rot.x, rot.y, rot.z, rot.w))
+                wp = fcRobot.Waypoint(_pose, "LIN", "Pt", velocity, False)
+                traj.insertWaypoints(wp)
+            elif command == 'frame':
+                frame_curr = target[1]
 
-
-    def add_demo_trajectory(self):
-        self.trajects = []
-        doc = FreeCAD.activeDocument()
-        t = doc.addObject("Robot::TrajectoryObject","Trajectory").Trajectory
-        # startTcp = self.rob.Tcp # = FreeCAD.Placement(FreeCAD.Vector(500,500,500), FreeCAD.Rotation(1,0,0,1))
-        startTcp = self.rob.Tcp = FreeCAD.Placement(FreeCAD.Vector(1177.93, 0.0, 430.462), FreeCAD.Rotation(0,1,0,0))
-        t.insertWaypoints(fcRobot.Waypoint(startTcp, "LIN","Pt",4000))
-        for i in range(7):
-            # rot = aR(ang_x*TO_RAD, V(1, 0, 0))
-            qx = aR(-90*TO_RAD, V(1, 0, 0))
-            qy = aR(i*20*TO_RAD, V(0, 1, 0))
-            rot = qx*qy
-            # FreeCAD.Rotation (-0.479426,-0,-0,0.877583)
-            fcOrient = FreeCAD.Rotation(rot.x, rot.y, rot.z, rot.w)
-            fcPos = FreeCAD.Vector(i*30+800, 500, -i*50+800)
-            # t.insertWaypoints(fcRobot.Waypoint(FreeCAD.Placement(fcPos, fcOrient),"LIN","Pt"))
-            t.insertWaypoints(fcRobot.Waypoint(FreeCAD.Placement(fcPos, fcOrient),"LIN","Pt",4000))
-        t.insertWaypoints(fcRobot.Waypoint(startTcp, "LIN","Pt",4000)) # end point of the trajectory
-        # App.activeDocument().Trajectory.Trajectory = t
-        self.trajects.append(t)
 
 
 
@@ -324,11 +325,6 @@ class Robot(baserobot.Robot):
         else:
             modelFile = tooldefwrl
 
-        # open, attach wrl file
-        FreeCAD.Gui.insert(tooldefwrl, FreeCAD.activeDocument().Name)  #TODO: open file without using Gui
-        # self.rob.ToolShape = FreeCAD.activeDocument().circular_saw
-        self.rob.ToolShape =  FreeCAD.ActiveDocument.Objects[-1]
-
         # set transforms
         with open(tooldefjson) as data_file:
             data = json.load(data_file)
@@ -367,6 +363,25 @@ class Robot(baserobot.Robot):
         if r:
             modelRot = R(r[0], r[1], r[2], r[3])
 
+        self.toolchange(pos, rot, mass, massCenterPos, modelFile, modelPos, modelRot)
+
+
+    def toolchange(self, pos=P(), rot=R(), mass=0.001, massCenterPos=P(), 
+             modelFile=None, modelPos=P(), modelRot=R()):
+        """Change the tool of the robot.
+
+        pos,rot: Tool frame transform from robot flange
+                 to tool center point and direction.
+        mass: mass of tool (kg)
+        massCenterPos: Translation from robot flange to 
+                       tool center of mass.
+        """
+        if modelFile:
+            # open, attach wrl file
+            FreeCAD.Gui.insert(modelFile, FreeCAD.activeDocument().Name)  #TODO: open file without using Gui
+            # self.rob.ToolShape = FreeCAD.activeDocument().circular_saw
+            self.rob.ToolShape = FreeCAD.ActiveDocument.Objects[-1]
+
         # assign to robot
         self.rob.Tool.Base = (pos.x, pos.y, pos.z)
         self.rob.Tool.Rotation = FreeCAD.Rotation(rot.x, rot.y, rot.z, rot.w)
@@ -381,22 +396,22 @@ class Robot(baserobot.Robot):
         self.pose = self.pose
 
 
-    def frame(self, origin, xpoint, ypoint):
-        ### calculate pose
-        vx = (xpoint - origin).normalized()
-        vy_ = (ypoint - origin).normalized()
-        vz = vx.cross(vy_).normalized()
-        vy = vz.cross(vx).normalized()
-        m = euclid.Matrix4.new_rotate_triple_axis(vx, vy, vz)
-        pos = origin
-        rot = m.get_quaternion()
-        self.framepose(pos, rot)
-        # visualize
-        form.line(origin, origin + (1000*vx))
-        form.line(origin, origin + (1000*vy))
-        form.line(origin, origin + (1000*vz))
+    # def frame(self, origin, xpoint, ypoint):
+    #     ### calculate pose
+    #     vx = (xpoint - origin).normalized()
+    #     vy_ = (ypoint - origin).normalized()
+    #     vz = vx.cross(vy_).normalized()
+    #     vy = vz.cross(vx).normalized()
+    #     m = euclid.Matrix4.new_rotate_triple_axis(vx, vy, vz)
+    #     pos = origin
+    #     rot = m.get_quaternion()
+    #     self.framechange(pos, rot)
+    #     # visualize
+    #     form.line(origin, origin + (1000*vx))
+    #     form.line(origin, origin + (1000*vy))
+    #     form.line(origin, origin + (1000*vz))
 
-    def framepose(self, pos, rot=R()):
+    def framechange(self, pos, rot=R()):
         """Defines a work object frame (coordinate system)."""
         pose_in_base_frame = self._frame * self._pose
         self._frame = Pose(pos, rot)
@@ -412,19 +427,26 @@ class Robot(baserobot.Robot):
         """Take path and generate animation."""
         last_pose = None
         for target in self._path:
-            # target has (pose, dur, linspeed, rotspeed)
-            pose = target[0]
-            dur = target[1]
-            linspeed = target[2]
-            rotspeed = target[3]
-            if last_pose:
-                dist = last_pose.pos.distance(pose.pos)
-                if linspeed == 0:
-                    dur = 0.0
-                else:
-                    dur = dist/float(linspeed)
-                self.animations.append([last_pose, pose, dur, None])
-            last_pose = pose
+            # target has (command, pose, dur, linspeed, rotspeed)
+            command = target[0]
+            if command == 'target':
+                pose = target[1]
+                dur = target[2]
+                linspeed = target[3]
+                rotspeed = target[4]
+                if last_pose:
+                    dist = last_pose.pos.distance(pose.pos)
+                    if linspeed == 0:
+                        dur = 0.0
+                    else:
+                        dur = dist/float(linspeed)
+                    self.animations.append(['target', last_pose, pose, dur, None])
+                last_pose = pose
+            elif command == 'tool':
+                self.animations.append(target)
+            elif command == 'frame':
+                self.animations.append(target)
+
 
         # setup timer callback
         self.timer = QtCore.QTimer()
@@ -452,36 +474,53 @@ class Robot(baserobot.Robot):
             self.stop()
             return
 
-        last_pose = self.animations[0][0]
-        pose = self.animations[0][1]
-        dur = self.animations[0][2]
-        state = self.animations[0][3]
-        if not state:
-            # new motion condition
-            # FreeCAD.Console.PrintMessage('*')
-            self.animations[0][3] = time.time()  # set state
-            self.pose = last_pose
-        else:
-            # continue motion
-            # FreeCAD.Console.PrintMessage('+')
-            dt = time.time() - state
-            if dur > 0:
-                t_pct = dt/dur
+        anim = self.animations[0]
+        command = anim[0]
+        if command == 'target':
+            last_pose = self.animations[0][1]
+            pose = self.animations[0][2]
+            dur = self.animations[0][3]
+            state = self.animations[0][4]
+            if not state:
+                # new motion condition
+                # FreeCAD.Console.PrintMessage('*')
+                self.animations[0][4] = time.time()  # set state
+                self.pose = last_pose
             else:
-                t_pct = 1.1  # meaning we are already there
+                # continue motion
+                # FreeCAD.Console.PrintMessage('+')
+                dt = time.time() - state
+                if dur > 0:
+                    t_pct = dt/dur
+                else:
+                    t_pct = 1.1  # meaning we are already there
 
-            if t_pct > 1:
-                # animation done
-                t_pct = 1.0
-                self.animations.pop(0)
+                if t_pct > 1:
+                    # animation done
+                    t_pct = 1.0
+                    self.animations.pop(0)
 
-            # linear and SLERP interpolation
-            self.pose = Pose.new_interpolate(last_pose, pose, t_pct)
+                # linear and SLERP interpolation
+                self.pose = Pose.new_interpolate(last_pose, pose, t_pct)
 
-            # this is how to manually compensate for the tool trans
-            # r.rob.Tcp = r.path.Waypoints[0].Pos.multiply(r.rob.Tool.inverse())
+                # this is how to manually compensate for the tool trans
+                # r.rob.Tcp = r.path.Waypoints[0].Pos.multiply(r.rob.Tool.inverse())
+        elif command == 'tool':
+            pose = anim[1]
+            mass = anim[2]
+            massCenterPose = anim[3]
+            modelFile = anim[4]
+            modelPose = anim[5]
+            self.toolchange(pose.pos, pose.rot, mass, massCenterPose.pos, 
+                            modelFile, modelPose.pos, modelPose.rot)
+            self.animations.pop(0)
+        elif command == 'frame':
+            pose = anim[1]
+            self.framechange(pose.pos, pose.rot)
+            self.animations.pop(0)
+            FreeCAD.Console.PrintMessage('((frame')
 
-        # FreeCAD.Console.PrintMessage('>')
+        FreeCAD.Console.PrintMessage('>')
 
 
 

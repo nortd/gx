@@ -55,17 +55,18 @@ class Robot(baserobot.Robot):
         self.currentZone = "z0"
         # self.currentTool = [True,[[0,0,0],[1,0,0,0]],[0.001,[0,0,0.001],[1,0,0,0],0,0,0]]
         self.currentTool = "tool0"
-        self.currentWobj = "wobj0"  # using default where user and work frame is the same as world
+        self.currentFrame = "wobj0"  # using default where user and work frame is the same as world
         self.confData = [0,0,0,0]  # Specifies robot axes angles
         # self.confData = [1,0,0,0]  # Specifies robot axes angles
         self.externalAxes = [9e9, 9e9, 9e9, 9e9, 9e9, 9e9]
         # self.externalAxes = "externalAxis0"
 
 
+
     def go(self, dest=ABB_CONTROLLER_TASKS_ROOT):
         """FTP-upload RAPID code to ABB controller (IRC5)"""
         ftp = ftplib.FTP()
-        ftp.connect(ABB_CONTROLLER_IP, ABB_CONTROLLER_FTP_PORT)
+        ftp.connect(ABB_CONTROLLER_IP, ABB_CONTROLLER_FTP_PORT, 6)
         ftp.login('gx', 'gx')
         try:
             ftp.cwd(ABB_CONTROLLER_TASKS_ROOT)
@@ -86,7 +87,6 @@ class Robot(baserobot.Robot):
             fp_pgf = StringIO.StringIO(code_pgf)
             ftp.storbinary('STOR %s' % (pgf_file), fp_pgf)
             print("ftp upload done: %s, %s" % (mod_file, pgf_file))
-
         ftp.quit()
 
 
@@ -96,12 +96,11 @@ class Robot(baserobot.Robot):
         self.main = [[],[],[]]
 
 
-    def dump(self, robot=1):
-        code = self._compile(robot)
-        print(code)
+    # def dump(self, robot=1):
+    #     code = self._compile(robot)
+    #     print(code)
 
-
-    def filedump(self, filename=None, robot=1):
+    def dump(self, filename=None, robot=1):
         if not filename:
             filename = LOCAL_OUTPUT_PATH[robot-1]
         filedir = os.path.split(filename)[0]
@@ -133,7 +132,7 @@ class Robot(baserobot.Robot):
         code.extend(self.main_head[robot-1])
         code.extend(self.main[robot-1])
         code.append("MoveAbsJ [[0,0,0,0,0,0],[0,0,0,0,0,0]], %s, %s, %s \Wobj:=%s;" % 
-                     (self.currentSpeed, self.currentZone, self.currentTool, self.currentWobj))
+                     (self.currentSpeed, self.currentZone, self.currentTool, self.currentFrame))
         code.append("ENDPROC")
         code.append("ENDMODULE")
         return '\n'.join(code)
@@ -149,12 +148,102 @@ class Robot(baserobot.Robot):
         return '\n'.join(code)
 
 
-    def target(self, pos, rot):
-        p = [pos.x, pos.y, pos.z]
-        q = [rot.w, rot.x, rot.y, rot.z]
-        self.move_linear(p, q)
 
-    def move_linear(self, pos, orient, robot=1, duration=None, setSignal=None):
+    # ###########################################
+    # Trajectory
+
+    def path(self, path, robot=1):
+        """Set path of the robot."""
+
+        # add all tool definitions
+        for varname,data in path.tooldefs[1].iteritems():
+            pose = data[0]
+            mass = data[1]
+            massCenterPose = data[2]
+            modelFile = [3]
+            modelPose = [4]
+            self._add_tool_var(varname, pos=pose.pos, rot=pose.rot, 
+                               mass=mass, massCenterPos=massCenterPose.pos, 
+                               massCenterRot=massCenterPose.rot, robot=robot)
+        # add all frame definitions
+        for varname,data in path.framedefs[1].iteritems():
+            frame = data[0]
+            self._add_frame_var(varname, workFramePos=frame.pos, 
+                                workFrameOrient=frame.rot, robot=robot)
+        # add all speed definitions
+        for varname,data in path.speeddefs[1].iteritems():
+            lin = data[0]
+            rot = data[1]
+            self._add_speed_var(varname, lin=lin, rot=rot, robot=robot)
+        # add all zone definitions
+        for varname,data in path.zonedefs[1].iteritems():
+            radius = data[0]
+            finep = False
+            if radius == 0:
+                finep = True
+            self._add_zone_var(varname, finep=finep, radius=radius, robot=robot)
+        # add commands with reference to above definitions
+        for command in path.commands:
+            typ = command[0]
+            if typ == "target":
+                pos = command[1]
+                rot = command[2]
+                dur = command[3]
+                inter = command[4]
+                tool = command[5]
+                frame = command[6]
+                speed = command[7]
+                zone = command[8]
+                signal = command[9]
+                state = command[10]
+                # set context
+                if tool:
+                    self.currentTool = tool
+                if frame:
+                    self.currentFrame = frame
+                if speed:
+                    self.currentSpeed = speed
+                if zone:
+                    self.currentZone = zone
+                # add target
+                if inter == 'LIN':
+                    self.move_linear(pos, rot, dur, signal, state, robot)                        
+                elif inter == 'PTP':
+                    self.move_joint(pos, rot, dur, signal, state, robot) 
+                else:
+                    print "ERROR: invalid interpolation mode"
+            elif typ == "axistarget":
+                axes = command[1]
+                dur = command[2]
+                speed = command[3]
+                if speed:
+                    self.currentSpeed = speed
+                self.move_joint_abs(self, axes, None, dur, robot)
+            elif typ == "output":
+                signal = command[1]
+                state = command[2]
+                delay = command[3]
+                wait = command[4]
+                sync = command[5]
+                digital_out(signal, state, delay, wait, sync, robot)
+            elif typ == "input":
+                pass
+            elif typ == "tool":
+                pass
+            elif typ == "frame":
+                pass
+            elif typ == "speed":
+                # speed already packed with target
+                pass
+            elif typ == "zone":
+                # speed already packed with target
+                pass
+            else:
+                raise Exception("invalid command type")
+
+
+
+    def move_linear(self, pos, orient, duration=None, signal=None, state=1, robot=1):
         """Linear move to position and orientation.
 
         This is an inverse kinematics move and maps to a RAPID MoveL call. 
@@ -189,17 +278,17 @@ class Robot(baserobot.Robot):
             duration = "\T:=%s" % (duration)
         else:
             duration = ""
-        if setSignal:
+        if signal:
             command = "MoveLDO"
-            setSignal = ", %s,%s" % (setSignal[0], int(setSignal[1]))
+            setSignal = ", %s,%s" % (signal, int(state))
         else:
             setSignal = ""
         self.main[robot-1].append("%s %s, %s %s, %s, %s \WObj:=%s%s;" % \
             (command, tname, self.currentSpeed, duration, self.currentZone, 
-             self.currentTool, self.currentWobj, setSignal))
+             self.currentTool, self.currentFrame, setSignal))
 
 
-    def move_joint(self, pos, orient, robot=1, duration=None, setSignal=None):
+    def move_joint(self, pos, orient, duration=None, signal=None, state=1, robot=1):
         """Linear move to position and orientation, joint interpolated.
 
         This is a inverse kinematics move that maps to a RAPID MoveJ call.
@@ -225,17 +314,17 @@ class Robot(baserobot.Robot):
             duration = "\T:=%s" % (duration)
         else:
             duration = ""
-        if setSignal:
+        if signal:
             command = "MoveJDO"
-            setSignal = ", %s,%s" % (setSignal[0], int(setSignal[1]))
+            setSignal = ", %s,%s" % (signal, int(state))
         else:
             setSignal = ""
         self.main[robot-1].append("%s %s, %s %s, %s, %s \WObj:=%s%s;" % \
             (command, tname, self.currentSpeed, duration, self.currentZone, 
-             self.currentTool, self.currentWobj, setSignal))
+             self.currentTool, self.currentFrame, setSignal))
 
 
-    def move_joint_abs(self, robaxes, extaxes, robot=1, duration=None):
+    def move_joint_abs(self, robaxes, extaxes, duration=None, robot=1):
         """Move the robot to a joint position.
 
         This is a forward kinematics move that maps to a RAPID MoveAbsJ call.
@@ -252,6 +341,8 @@ class Robot(baserobot.Robot):
         command = "MoveAbsJ"
         tname = "axes" + str(self.tcounter)
         self.tcounter += 1
+        if not extaxes:
+            extaxes = self.externalAxes
         self._add_axistarget_var(tname, robaxes, extaxes)
         if duration:
             duration = "\T:=%s" % (duration)
@@ -342,8 +433,6 @@ class Robot(baserobot.Robot):
             main.append("SingArea \Off;")
             
 
-
-
     def start_sync_move(self, robot):
         main = self.main[robot-1]
         main.append("SyncMoveOn SyncOn, task_list;")
@@ -372,7 +461,8 @@ class Robot(baserobot.Robot):
 
 
     def _add_tool_var(self, varname, holding=True, pos=[0,0,0], rot=[1,0,0,0], 
-                      mass=0.001, massCenterPos=[0,0,0], massCenterRot=[1,0,0,0]):
+                      mass=0.001, massCenterPos=[0,0,0], massCenterRot=[1,0,0,0],
+                      robot=1):
         """Define a tool.
 
         The array has the following data:
@@ -388,9 +478,10 @@ class Robot(baserobot.Robot):
         vars_.append("PERS tooldata %s := %s;" % (varname, tool))
 
 
-    def _add_workobject_var(self, varname, holdingWork=False, fixed=True, unitExt="",
-                            userFramePos=[0,0,0], userFrameOrient=[1,0,0,0],
-                            workFramePos=[0,0,0], workFrameOrient=[1,0,0,0],  robot=1):
+    def _add_frame_var(self, varname, holdingWork=False, fixed=True, unitExt="",
+                       userFramePos=[0,0,0], userFrameOrient=[1,0,0,0],
+                       workFramePos=[0,0,0], workFrameOrient=[1,0,0,0],
+                       robot=1):
         """Define work object coordinate system.
 
         The array has the following data:
@@ -454,7 +545,8 @@ class Robot(baserobot.Robot):
 
 
     def _add_zone_var(self, varname, finep=False, radius=0.3, pzone_ori=None, 
-                      pzone_eax=None, zone_ori=None, zone_leax=None, zone_reax=None):
+                      pzone_eax=None, zone_ori=None, zone_leax=None, zone_reax=None,
+                      robot=1):
         """Define a zone data definition.
 
         This determines how trajectory segments are blended and how
