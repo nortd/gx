@@ -426,16 +426,17 @@ class Robot(baserobot.Robot):
     def go(self):
         """Take path and generate animation."""
         last_pose = None
+        frame_curr = self._frame
         for target in self._path:
             # target has (command, pose, dur, linspeed, rotspeed)
             command = target[0]
             if command == 'target':
-                pose = target[1]
+                pose = frame_curr * target[1]
                 dur = target[2]
                 linspeed = target[3]
                 rotspeed = target[4]
                 if last_pose:
-                    dist = last_pose.pos.distance(pose.pos)
+                    dist = abs(last_pose.pos - pose.pos)
                     if linspeed == 0:
                         dur = 0.0
                     else:
@@ -445,7 +446,7 @@ class Robot(baserobot.Robot):
             elif command == 'tool':
                 self.animations.append(target)
             elif command == 'frame':
-                self.animations.append(target)
+                frame_curr = target[1]
 
 
         # setup timer callback
@@ -514,13 +515,8 @@ class Robot(baserobot.Robot):
             self.toolchange(pose.pos, pose.rot, mass, massCenterPose.pos, 
                             modelFile, modelPose.pos, modelPose.rot)
             self.animations.pop(0)
-        elif command == 'frame':
-            pose = anim[1]
-            self.framechange(pose.pos, pose.rot)
-            self.animations.pop(0)
-            FreeCAD.Console.PrintMessage('((frame')
 
-        FreeCAD.Console.PrintMessage('>')
+        # FreeCAD.Console.PrintMessage('>')
 
 
 
