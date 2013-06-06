@@ -182,29 +182,17 @@ class Robot(baserobot.Robot):
             if radius == 0:
                 finep = True
             self._add_zone_var(varname, finep=finep, radius=radius, robot=robot)
+
         # add commands with reference to above definitions
         for command in path.commands:
             typ = command[0]
             if typ == "target":
                 pos = command[1]
                 rot = command[2]
-                dur = command[3]
-                inter = command[4]
-                tool = command[5]
-                frame = command[6]
-                speed = command[7]
-                zone = command[8]
-                signal = command[9]
-                state = command[10]
-                # set context
-                if tool:
-                    self.currentTool = tool
-                if frame:
-                    self.currentFrame = frame
-                if speed:
-                    self.currentSpeed = speed
-                if zone:
-                    self.currentZone = zone
+                inter = command[3]
+                dur = command[4]
+                signal = command[5]
+                state = command[6]
                 # add target
                 if inter == 'LIN':
                     self.move_linear(pos, rot, dur, signal, state, robot)                        
@@ -215,9 +203,6 @@ class Robot(baserobot.Robot):
             elif typ == "axistarget":
                 axes = command[1]
                 dur = command[2]
-                speed = command[3]
-                if speed:
-                    self.currentSpeed = speed
                 self.move_joint_abs(self, axes, None, dur, robot)
             elif typ == "output":
                 signal = command[1]
@@ -229,15 +214,13 @@ class Robot(baserobot.Robot):
             elif typ == "input":
                 pass
             elif typ == "tool":
-                pass
+                self.currentTool = command[1]
             elif typ == "frame":
-                pass
+                self.currentFrame = command[1]
             elif typ == "speed":
-                # speed already packed with target
-                pass
+                self.currentSpeed = command[1]
             elif typ == "zone":
-                # speed already packed with target
-                pass
+                self.currentZone = command[1]
             else:
                 raise Exception("invalid command type")
 

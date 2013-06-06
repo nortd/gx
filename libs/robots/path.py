@@ -67,7 +67,7 @@ class Path(object):
              other speed settings.
         """
         if len(axes) == 6:
-            command = ('axistarget', axes, dur, self.speed_curr)
+            command = ('axistarget', axes, dur)
             self.commands.append(command)
         else:
             raise Exception("invalid axes length")
